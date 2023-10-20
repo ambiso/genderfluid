@@ -4,7 +4,9 @@
 //! is rendered to the screen.
 
 use bevy::{
+    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
+    reflect::{TypePath, TypeUuid},
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
@@ -13,6 +15,13 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
+    render::{
+        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
+        render_resource::{
+            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
+            VertexFormat,
+        },
+    },
     window::WindowPlugin,
 };
 use std::borrow::Cow;
@@ -20,23 +29,8 @@ use std::borrow::Cow;
 const SIZE: u32 = 256;
 const WORKGROUP_SIZE: u32 = 8;
 
-// fn main() {
-//     App::new()
-//         .insert_resource(ClearColor(Color::BLACK))
-//         .add_plugins((
-//             DefaultPlugins.set(WindowPlugin {
-//                 primary_window: Some(Window {
-//                     // uncomment for unthrottled FPS
-//                     // present_mode: bevy::window::PresentMode::AutoNoVsync,
-//                     ..default()
-//                 }),
-//                 ..default()
-//             }),
-//             GameOfLifeComputePlugin,
-//         ))
-//         .add_systems(Startup, setup)
-//         .run();
-// }
+// const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
+//     MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
 
 // A simple 3D scene with light shining over a cube sitting on a plane.
 fn main() {
@@ -51,6 +45,7 @@ fn main() {
                 ..default()
             }),
             GameOfLifeComputePlugin,
+            MaterialPlugin::<CustomMaterial>::default(),
         ))
         .add_systems(Startup, setup)
         .run();
@@ -60,7 +55,8 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    //mut materials: ResMut<Assets<StandardMaterial>>,
+    mut custom_materials: ResMut<Assets<CustomMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     // light
@@ -104,15 +100,25 @@ fn setup(
     // commands.spawn(Camera2dBundle::default());
 
     // plane
-    let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(image.clone()),
-        alpha_mode: AlphaMode::Blend,
-        unlit: true,
-        ..default()
+    // let material_handle = materials.add(StandardMaterial {
+    //     base_color_texture: Some(image.clone()),
+    //     alpha_mode: AlphaMode::Blend,
+    //     unlit: true,
+    //     ..default()
+    // });
+    let material_handle = custom_materials.add(CustomMaterial {
+        color: Color::WHITE,
+        heightmap: Some(image.clone()),
     });
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane { size: 5.0, subdivisions: SIZE}.into()),
+    commands.spawn(MaterialMeshBundle {
+        mesh: meshes.add(
+            shape::Plane {
+                size: 5.0,
+                subdivisions: SIZE,
+            }
+            .into(),
+        ),
         material: material_handle,
         ..default()
     });
@@ -302,5 +308,25 @@ impl render_graph::Node for GameOfLifeNode {
         }
 
         Ok(())
+    }
+}
+
+// This is the struct that will be passed to your shader
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
+#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
+pub struct CustomMaterial {
+    #[uniform(0)]
+    color: Color,
+    #[texture(1)]
+    #[sampler(2)]
+    heightmap: Option<Handle<Image>>,
+}
+
+impl Material for CustomMaterial {
+    fn vertex_shader() -> ShaderRef {
+        "shaders/custom_vertex_attribute.wgsl".into()
+    }
+    fn fragment_shader() -> ShaderRef {
+        "shaders/custom_vertex_attribute.wgsl".into()
     }
 }
