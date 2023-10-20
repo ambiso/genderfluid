@@ -108,6 +108,7 @@ fn setup(
     // });
     let material_handle = custom_materials.add(CustomMaterial {
         color: Color::WHITE,
+        size: SIZE,
         heightmap: Some(image.clone()),
     });
 
@@ -317,6 +318,8 @@ impl render_graph::Node for GameOfLifeNode {
 pub struct CustomMaterial {
     #[uniform(0)]
     color: Color,
+    #[uniform(0)]
+    size: u32,
     #[texture(1)]
     #[sampler(2)]
     heightmap: Option<Handle<Image>>,
@@ -324,9 +327,9 @@ pub struct CustomMaterial {
 
 impl Material for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
-        "shaders/custom_vertex_attribute.wgsl".into()
+        "shaders/water_vertex_and_fragment.wgsl".into()
     }
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_vertex_attribute.wgsl".into()
+        "shaders/water_vertex_and_fragment.wgsl".into()
     }
 }
