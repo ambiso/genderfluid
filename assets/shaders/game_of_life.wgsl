@@ -27,40 +27,40 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
     textureStore(texture, location, color);
 }
 
-fn is_alive(location: vec2<i32>, offset_x: i32, offset_y: i32) -> i32 {
+fn get_data(location: vec2<i32>, offset_x: i32, offset_y: i32) -> vec4<f32> {
     let value: vec4<f32> = textureLoad(texture, location + vec2<i32>(offset_x, offset_y));
-    return i32(value.x);
+    return value;
 }
 
-fn count_alive(location: vec2<i32>) -> i32 {
-    return is_alive(location, -1, -1) +
-           is_alive(location, -1,  0) +
-           is_alive(location, -1,  1) +
-           is_alive(location,  0, -1) +
-           is_alive(location,  0,  1) +
-           is_alive(location,  1, -1) +
-           is_alive(location,  1,  0) +
-           is_alive(location,  1,  1);
+fn get_height(data: vec4<f32>) -> f32 {
+    return data.x;
+}
+
+fn get_vel(data: vec4<f32>) -> f32 {
+    return data.y;
+}
+
+fn pack_data(height: f32, vel: f32) -> vec4<f32> {
+    return vec4(height, vel, 0.0, 0.0);
 }
 
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
-    let n_alive = count_alive(location);
+    let d0 = get_data(location,  0,  0);
+    let d1 = get_data(location,  1,  0);
+    let d2 = get_data(location, -1,  0);
+    let d3 = get_data(location,  0,  1);
+    let d4 = get_data(location,  0, -1);
 
-    var alive: bool;
-    if (n_alive == 3) {
-        alive = true;
-    } else if (n_alive == 2) {
-        let currently_alive = is_alive(location, 0, 0);
-        alive = bool(currently_alive);
-    } else {
-        alive = false;
-    }
-    let color = vec4<f32>(f32(alive));
+    let dt = 0.01 * 0.25;
+
+    let accel = get_height(d1) + get_height(d2) + get_height(d3) + get_height(d4) - 4.0 * get_height(d0);
+    let newVel = get_vel(d0) + accel * dt;
+    let newHeight = get_height(d0) + newVel * dt;
 
     storageBarrier();
 
-    textureStore(texture, location, color);
+    textureStore(texture, location, pack_data(newHeight, newVel));
 }
