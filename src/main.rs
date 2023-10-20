@@ -17,12 +17,30 @@ use bevy::{
 };
 use std::borrow::Cow;
 
-const SIZE: (u32, u32) = (1280, 720);
+const SIZE: u32 = 256;
 const WORKGROUP_SIZE: u32 = 8;
 
+// fn main() {
+//     App::new()
+//         .insert_resource(ClearColor(Color::BLACK))
+//         .add_plugins((
+//             DefaultPlugins.set(WindowPlugin {
+//                 primary_window: Some(Window {
+//                     // uncomment for unthrottled FPS
+//                     // present_mode: bevy::window::PresentMode::AutoNoVsync,
+//                     ..default()
+//                 }),
+//                 ..default()
+//             }),
+//             GameOfLifeComputePlugin,
+//         ))
+//         .add_systems(Startup, setup)
+//         .run();
+// }
+
+// A simple 3D scene with light shining over a cube sitting on a plane.
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -38,11 +56,33 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+/// set up a simple 3D scene
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
+) {
+    // light
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            intensity: 1500.0,
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(4.0, 8.0, 4.0),
+        ..default()
+    });
+    // camera
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+
     let mut image = Image::new_fill(
         Extent3d {
-            width: SIZE.0,
-            height: SIZE.1,
+            width: SIZE,
+            height: SIZE,
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
@@ -55,13 +95,27 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     commands.spawn(SpriteBundle {
         sprite: Sprite {
-            custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
+            custom_size: Some(Vec2::new(SIZE as f32, SIZE as f32)),
             ..default()
         },
         texture: image.clone(),
         ..default()
     });
-    commands.spawn(Camera2dBundle::default());
+    // commands.spawn(Camera2dBundle::default());
+
+    // plane
+    let material_handle = materials.add(StandardMaterial {
+        base_color_texture: Some(image.clone()),
+        alpha_mode: AlphaMode::Blend,
+        unlit: true,
+        ..default()
+    });
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(shape::Plane { size: 5.0, subdivisions: SIZE}.into()),
+        material: material_handle,
+        ..default()
+    });
 
     commands.insert_resource(GameOfLifeImage(image));
 }
@@ -236,14 +290,14 @@ impl render_graph::Node for GameOfLifeNode {
                     .get_compute_pipeline(pipeline.init_pipeline)
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                pass.dispatch_workgroups(SIZE / WORKGROUP_SIZE, SIZE / WORKGROUP_SIZE, 1);
             }
             GameOfLifeState::Update => {
                 let update_pipeline = pipeline_cache
                     .get_compute_pipeline(pipeline.update_pipeline)
                     .unwrap();
                 pass.set_pipeline(update_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                pass.dispatch_workgroups(SIZE / WORKGROUP_SIZE, SIZE / WORKGROUP_SIZE, 1);
             }
         }
 
