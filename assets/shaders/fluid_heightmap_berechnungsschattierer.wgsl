@@ -9,7 +9,7 @@ var velocity: texture_storage_2d<r32float, read_write>;
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
     let height = sin(f32(location.x) / f32(num_workgroups.x)) + cos(f32(location.y) / f32(num_workgroups.y))/4.0 + 0.5;
-    textureStore(height_out, location, vec4<f32>(height, 0.0, 0.0, 1.0));
+    textureStore(height_out, location, vec4<f32>(max(height, 0.0), 0.0, 0.0, 1.0));
     textureStore(velocity, location, vec4(0.0, 0.0, 0.0, 1.0));
 }
 
