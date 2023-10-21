@@ -46,5 +46,5 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     textureStore(velocity, location, vec4(new_vel, 0.0, 0.0, 1.0));
 
     let new_height = height0 + new_vel * dt;
-    textureStore(height_out, location, vec4(new_height, 0.0, 0.0, 1.0));
+    textureStore(height_out, location, vec4(max(new_height, 0.0), 0.0, 0.0, 1.0));
 }
