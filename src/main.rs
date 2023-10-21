@@ -30,7 +30,7 @@ use smooth_bevy_cameras::{
 };
 use std::borrow::Cow;
 
-const SIZE: u32 = 128;
+const SIZE: u32 = 256;
 const WORKGROUP_SIZE: u32 = 8;
 
 // const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
