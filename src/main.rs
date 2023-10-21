@@ -6,9 +6,7 @@
 mod water_pbr_material;
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::{TypePath, TypeUuid},
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
@@ -17,19 +15,11 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         Render, RenderApp, RenderSet,
     },
-    render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-            VertexFormat,
-        },
-    },
     window::WindowPlugin,
 };
 use water_pbr_material::WaterStandardMaterial;
 use smooth_bevy_cameras::{
-    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
-    LookTransform, LookTransformBundle, LookTransformPlugin, Smoother,
+    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin}, LookTransformPlugin,
 };
 use std::borrow::Cow;
 
