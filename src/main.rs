@@ -174,23 +174,27 @@ fn queue_bind_group(
     mut commands: Commands,
     pipeline: Res<GenderfluidPipeline>,
     gpu_images: Res<RenderAssets<Image>>,
-    genderfluid_image: Res<GenderfluidImage>,
+    mut genderfluid_image: ResMut<GenderfluidImage>,
     render_device: Res<RenderDevice>,
 ) {
-    let height_in = &gpu_images[&genderfluid_image.height1];
-    let height_out = &gpu_images[&genderfluid_image.height2];
+    let gfi = &mut *genderfluid_image;
+    std::mem::swap(&mut gfi.height1, &mut gfi.height2);
+
+    let height1 = &gpu_images[&genderfluid_image.height1];
+    let height2 = &gpu_images[&genderfluid_image.height2];
     let velocity = &gpu_images[&genderfluid_image.velocity];
+
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &pipeline.texture_bind_group_layout,
         entries: &[
             BindGroupEntry {
                 binding: 0,
-                resource: BindingResource::TextureView(&height_in.texture_view),
+                resource: BindingResource::TextureView(&height1.texture_view),
             },
             BindGroupEntry {
                 binding: 1,
-                resource: BindingResource::TextureView(&height_out.texture_view),
+                resource: BindingResource::TextureView(&height2.texture_view),
             },
             BindGroupEntry {
                 binding: 2,
