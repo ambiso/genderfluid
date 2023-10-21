@@ -10,21 +10,11 @@ var velocity: texture_storage_2d<r32float, read_write>;
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
-    // let rand_offset_x = 13.5;  // Replace with an actual random number, possibly passed as a uniform
-    // let rand_offset_y = 42.7;  // Replace with an actual random number, possibly passed as a uniform
-    // let rand_scale_x = 13.5;
-    // let rand_scale_y = 10.3;
 
     let location_for_noise = vec3<f32>(f32(invocation_id.x) * 0.052, f32(invocation_id.y) * 0.052, 1.0);
     let noise = simplex_noise_3d(location_for_noise);
     let height = noise + 1.5;
 
-    // let height = (sin(rand_scale_x * (f32(location.x) + rand_offset_x) / f32(num_workgroups.x)) +
-    //             cos(rand_scale_y * (f32(location.y) + rand_offset_y) / f32(num_workgroups.y)))/3.0 + 1.5;
-    //var height = 1.0;
-    // if (location.x > 100 && location.x < 128 && location.y > 100 && location.y < 128) {
-    //     height = 2.0;
-    // }
     textureStore(height_out, location, vec4<f32>(max(height, 0.0), 0.0, 0.0, 1.0));
     textureStore(velocity, location, vec4(0.0, 0.0, 0.0, 1.0));
 }
@@ -67,8 +57,6 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     // Mass conservation: distribute the change in height back to neighbors
     let height_change = new_vel * dt;
     let new_height = height0 + height_change;
-    let avg_neighbor_height = (height1 + height2 + height3 + height4) / 4.0;
-    let redistributed_height = avg_neighbor_height - height_change / 4.0;
 
     textureStore(velocity, location, vec4(new_vel, 0.0, 0.0, 1.0));
     textureStore(height_out, location, vec4(max(new_height, 0.0), 0.0, 0.0, 1.0));
