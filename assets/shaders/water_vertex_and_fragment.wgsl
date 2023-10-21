@@ -1,4 +1,4 @@
-// #import bevy_pbr::mesh_vertex_output MeshVertexOutput
+/* #import bevy_pbr::mesh_vertex_output MeshVertexOutput */
 #import bevy_pbr::mesh_bindings   mesh
 #import bevy_pbr::mesh_functions  mesh_position_local_to_clip
 
