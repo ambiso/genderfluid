@@ -1,4 +1,4 @@
-//! A compute shader that simulates Conway's Game of Life.
+//! A compute shader that simulates Genderfluid.
 //!
 //! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
 //! is rendered to the screen.
@@ -44,7 +44,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            GameOfLifeComputePlugin,
+            GenderfluidComputePlugin,
             MaterialPlugin::<CustomMaterial>::default(),
         ))
         .add_systems(Startup, setup)
@@ -124,47 +124,44 @@ fn setup(
         ..default()
     });
 
-    commands.insert_resource(GameOfLifeImage(image));
+    commands.insert_resource(GenderfluidImage(image));
 }
 
-pub struct GameOfLifeComputePlugin;
+pub struct GenderfluidComputePlugin;
 
-impl Plugin for GameOfLifeComputePlugin {
+impl Plugin for GenderfluidComputePlugin {
     fn build(&self, app: &mut App) {
-        // Extract the game of life image resource from the main world into the render world
+        // Extract the genderfluid image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        app.add_plugins(ExtractResourcePlugin::<GenderfluidImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph.add_node_edge(
-            "game_of_life",
-            bevy::render::main_graph::node::CAMERA_DRIVER,
-        );
+        render_graph.add_node("genderfluid", GenderfluidNode::default());
+        render_graph.add_node_edge("genderfluid", bevy::render::main_graph::node::CAMERA_DRIVER);
     }
 
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
-        render_app.init_resource::<GameOfLifePipeline>();
+        render_app.init_resource::<GenderfluidPipeline>();
     }
 }
 
 #[derive(Resource, Clone, Deref, ExtractResource)]
-struct GameOfLifeImage(Handle<Image>);
+struct GenderfluidImage(Handle<Image>);
 
 #[derive(Resource)]
-struct GameOfLifeImageBindGroup(BindGroup);
+struct GenderfluidImageBindGroup(BindGroup);
 
 fn queue_bind_group(
     mut commands: Commands,
-    pipeline: Res<GameOfLifePipeline>,
+    pipeline: Res<GenderfluidPipeline>,
     gpu_images: Res<RenderAssets<Image>>,
-    game_of_life_image: Res<GameOfLifeImage>,
+    genderfluid_image: Res<GenderfluidImage>,
     render_device: Res<RenderDevice>,
 ) {
-    let view = &gpu_images[&game_of_life_image.0];
+    let view = &gpu_images[&genderfluid_image.0];
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &pipeline.texture_bind_group_layout,
@@ -173,17 +170,17 @@ fn queue_bind_group(
             resource: BindingResource::TextureView(&view.texture_view),
         }],
     });
-    commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
+    commands.insert_resource(GenderfluidImageBindGroup(bind_group));
 }
 
 #[derive(Resource)]
-pub struct GameOfLifePipeline {
+pub struct GenderfluidPipeline {
     texture_bind_group_layout: BindGroupLayout,
     init_pipeline: CachedComputePipelineId,
     update_pipeline: CachedComputePipelineId,
 }
 
-impl FromWorld for GameOfLifePipeline {
+impl FromWorld for GenderfluidPipeline {
     fn from_world(world: &mut World) -> Self {
         let texture_bind_group_layout =
             world
@@ -203,7 +200,7 @@ impl FromWorld for GameOfLifePipeline {
                 });
         let shader = world
             .resource::<AssetServer>()
-            .load("shaders/game_of_life.wgsl");
+            .load("shaders/fluid_heightmap_berechnungsschattierer.wgsl");
         let pipeline_cache = world.resource::<PipelineCache>();
         let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: None,
@@ -222,7 +219,7 @@ impl FromWorld for GameOfLifePipeline {
             entry_point: Cow::from("update"),
         });
 
-        GameOfLifePipeline {
+        GenderfluidPipeline {
             texture_bind_group_layout,
             init_pipeline,
             update_pipeline,
@@ -230,46 +227,46 @@ impl FromWorld for GameOfLifePipeline {
     }
 }
 
-enum GameOfLifeState {
+enum GenderfluidState {
     Loading,
     Init,
     Update,
 }
 
-struct GameOfLifeNode {
-    state: GameOfLifeState,
+struct GenderfluidNode {
+    state: GenderfluidState,
 }
 
-impl Default for GameOfLifeNode {
+impl Default for GenderfluidNode {
     fn default() -> Self {
         Self {
-            state: GameOfLifeState::Loading,
+            state: GenderfluidState::Loading,
         }
     }
 }
 
-impl render_graph::Node for GameOfLifeNode {
+impl render_graph::Node for GenderfluidNode {
     fn update(&mut self, world: &mut World) {
-        let pipeline = world.resource::<GameOfLifePipeline>();
+        let pipeline = world.resource::<GenderfluidPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
         // if the corresponding pipeline has loaded, transition to the next stage
         match self.state {
-            GameOfLifeState::Loading => {
+            GenderfluidState::Loading => {
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
                 {
-                    self.state = GameOfLifeState::Init;
+                    self.state = GenderfluidState::Init;
                 }
             }
-            GameOfLifeState::Init => {
+            GenderfluidState::Init => {
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
                 {
-                    self.state = GameOfLifeState::Update;
+                    self.state = GenderfluidState::Update;
                 }
             }
-            GameOfLifeState::Update => {}
+            GenderfluidState::Update => {}
         }
     }
 
@@ -279,9 +276,9 @@ impl render_graph::Node for GameOfLifeNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
-        let texture_bind_group = &world.resource::<GameOfLifeImageBindGroup>().0;
+        let texture_bind_group = &world.resource::<GenderfluidImageBindGroup>().0;
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipeline = world.resource::<GameOfLifePipeline>();
+        let pipeline = world.resource::<GenderfluidPipeline>();
 
         let mut pass = render_context
             .command_encoder()
@@ -291,15 +288,15 @@ impl render_graph::Node for GameOfLifeNode {
 
         // select the pipeline based on the current state
         match self.state {
-            GameOfLifeState::Loading => {}
-            GameOfLifeState::Init => {
+            GenderfluidState::Loading => {}
+            GenderfluidState::Init => {
                 let init_pipeline = pipeline_cache
                     .get_compute_pipeline(pipeline.init_pipeline)
                     .unwrap();
                 pass.set_pipeline(init_pipeline);
                 pass.dispatch_workgroups(SIZE / WORKGROUP_SIZE, SIZE / WORKGROUP_SIZE, 1);
             }
-            GameOfLifeState::Update => {
+            GenderfluidState::Update => {
                 let update_pipeline = pipeline_cache
                     .get_compute_pipeline(pipeline.update_pipeline)
                     .unwrap();
