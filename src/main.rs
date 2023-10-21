@@ -214,11 +214,11 @@ pub struct GenderfluidPipeline {
 
 impl FromWorld for GenderfluidPipeline {
     fn from_world(world: &mut World) -> Self {
-        let make_binding = |binding: u32| BindGroupLayoutEntry {
+        let make_binding = |binding: u32, access: StorageTextureAccess| BindGroupLayoutEntry {
             binding,
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::StorageTexture {
-                access: StorageTextureAccess::ReadWrite,
+                access,
                 format: TextureFormat::R32Float,
                 view_dimension: TextureViewDimension::D2,
             },
@@ -229,7 +229,7 @@ impl FromWorld for GenderfluidPipeline {
                 .resource::<RenderDevice>()
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: None,
-                    entries: &[make_binding(0), make_binding(1), make_binding(2)],
+                    entries: &[make_binding(0, StorageTextureAccess::ReadOnly), make_binding(1, StorageTextureAccess::WriteOnly), make_binding(2, StorageTextureAccess::ReadWrite)],
                 });
         let shader = world
             .resource::<AssetServer>()

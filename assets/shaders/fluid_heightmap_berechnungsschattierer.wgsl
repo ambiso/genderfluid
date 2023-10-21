@@ -1,7 +1,7 @@
 @group(0) @binding(0)
-var height_in: texture_storage_2d<r32float, read_write>;
+var height_in: texture_storage_2d<r32float, read>;
 @group(0) @binding(1)
-var height_out: texture_storage_2d<r32float, read_write>;
+var height_out: texture_storage_2d<r32float, write>;
 @group(0) @binding(2)
 var velocity: texture_storage_2d<r32float, read_write>;
 
@@ -26,9 +26,10 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 
     let randomNumber = randomFloat(invocation_id.y * num_workgroups.x + invocation_id.x);
     let alive = randomNumber > 0.9;
-    let color = vec4<f32>(f32(alive));
+    let color = vec4<f32>(f32(alive), 0.0, 0.0, 1.0);
 
     textureStore(height_out, location, color);
+    textureStore(velocity, location, vec4(0.0, 0.0, 0.0, 1.0));
 }
 
 fn get_height(location: vec2<i32>, offset_x: i32, offset_y: i32) -> f32 {
@@ -39,10 +40,6 @@ fn get_height(location: vec2<i32>, offset_x: i32, offset_y: i32) -> f32 {
 fn get_vel(location: vec2<i32>, offset_x: i32, offset_y: i32) -> f32 {
     let value: vec4<f32> = textureLoad(velocity, location + vec2<i32>(offset_x, offset_y));
     return value.x;
-}
-
-fn pack_data(height: f32, vel: f32) -> vec4<f32> {
-    return vec4(height, vel, 0.0, 0.0);
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -63,5 +60,5 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     textureStore(velocity, location, vec4(new_vel, 0.0, 0.0, 1.0));
 
     let new_height = height0 + new_vel * dt;
-    textureStore(height_out, location, vec4(new_height, 0.0, 0.0, 1.0));
+    textureStore(height_out, location, vec4(max(new_height, 0.0), 0.0, 0.0, 1.0));
 }
