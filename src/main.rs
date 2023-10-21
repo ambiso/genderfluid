@@ -17,6 +17,7 @@ use bevy::{
     },
     window::WindowPlugin,
 };
+use bevy_shader_utils::ShaderUtilsPlugin;
 use smooth_bevy_cameras::{
     controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
     LookTransformPlugin,
@@ -76,6 +77,7 @@ fn main() {
             GenderfluidComputePlugin,
             FpsCameraPlugin::default(),
             LookTransformPlugin,
+            ShaderUtilsPlugin,
             MaterialPlugin::<WaterStandardMaterial>::default(),
         ))
         .add_event::<SphereControlEvent>()
