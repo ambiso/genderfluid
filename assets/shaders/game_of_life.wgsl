@@ -54,10 +54,10 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let d3 = get_data(location,  0,  1);
     let d4 = get_data(location,  0, -1);
 
-    let dt = 0.01 * 0.25;
+    let dt = 0.01;
 
     let accel = get_height(d1) + get_height(d2) + get_height(d3) + get_height(d4) - 4.0 * get_height(d0);
-    let newVel = get_vel(d0) + accel * dt;
+    let newVel = get_vel(d0) + 0.1 * accel * dt;
     let newHeight = get_height(d0) + newVel * dt;
 
     storageBarrier();
