@@ -40,7 +40,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     let dt = 0.01;
 
-    let k = 0.10;
+    let k = 2.00;
     let accel = k * (height1 + height2 + height3 + height4 - 4.0 * height0);
     let new_vel = get_vel(location, 0, 0) + accel * dt;
     textureStore(velocity, location, vec4(new_vel, 0.0, 0.0, 1.0));

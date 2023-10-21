@@ -149,7 +149,8 @@ fn setup(
     let material_handle = custom_materials.add(WaterStandardMaterial {
         height: Some(height1.clone()), // TODO richtiges ding reinpassen
         velocity: Some(velocity.clone()),
-        base_color: Color::hsl(200.0, 1.0, 0.5),
+        base_color: Color::hsla(200.0, 1.0, 0.5, 0.8),
+        alpha_mode: AlphaMode::Blend,
         ..Default::default()
     });
 
