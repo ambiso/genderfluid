@@ -3,6 +3,8 @@
 //! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
 //! is rendered to the screen.
 
+mod water_pbr_material;
+
 use bevy::{
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
@@ -24,6 +26,7 @@ use bevy::{
     },
     window::WindowPlugin,
 };
+use water_pbr_material::WaterStandardMaterial;
 use smooth_bevy_cameras::{
     controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
     LookTransform, LookTransformBundle, LookTransformPlugin, Smoother,
@@ -71,7 +74,7 @@ fn main() {
             GenderfluidComputePlugin,
             FpsCameraPlugin::default(),
             LookTransformPlugin,
-            MaterialPlugin::<CustomMaterial>::default(),
+            MaterialPlugin::<WaterStandardMaterial>::default(),
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, move_cube)
@@ -83,7 +86,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
-    mut custom_materials: ResMut<Assets<CustomMaterial>>,
+    mut custom_materials: ResMut<Assets<WaterStandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     let eye = Vec3::new(-2.0, 5.0, 5.1);
@@ -140,11 +143,11 @@ fn setup(
     let height2 = make_texture();
     let velocity = make_texture();
 
-    let material_handle = custom_materials.add(CustomMaterial {
-        color: Color::WHITE,
-        size: SIZE,
+    let material_handle = custom_materials.add(WaterStandardMaterial {
         height: Some(height1.clone()), // TODO richtiges ding reinpassen
         velocity: Some(velocity.clone()),
+        base_color: Color::hsl(200.0, 1.0, 0.5),
+        ..Default::default()
     });
 
     commands.spawn(MaterialMeshBundle {
@@ -385,27 +388,3 @@ impl render_graph::Node for GenderfluidNode {
     }
 }
 
-// This is the struct that will be passed to your shader
-#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
-#[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
-pub struct CustomMaterial {
-    #[uniform(0)]
-    color: Color,
-    #[uniform(0)]
-    size: u32,
-    #[texture(1)]
-    #[sampler(2)]
-    height: Option<Handle<Image>>,
-    #[texture(3)]
-    #[sampler(4)]
-    velocity: Option<Handle<Image>>,
-}
-
-impl Material for CustomMaterial {
-    fn vertex_shader() -> ShaderRef {
-        "shaders/water_vertex_and_fragment.wgsl".into()
-    }
-    fn fragment_shader() -> ShaderRef {
-        "shaders/water_vertex_and_fragment.wgsl".into()
-    }
-}
