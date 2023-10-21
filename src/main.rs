@@ -69,7 +69,28 @@ fn main() {
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, move_cube)
+        .add_systems(Update, cursor_grab_system)
         .run();
+}
+
+use bevy::window::CursorGrabMode;
+
+fn cursor_grab_system(
+    mut windows: Query<&mut Window>,
+    btn: Res<Input<MouseButton>>,
+    key: Res<Input<KeyCode>>,
+) {
+    let mut window = windows.single_mut();
+
+    if btn.just_pressed(MouseButton::Left) {
+        window.cursor.grab_mode = CursorGrabMode::Locked;
+        window.cursor.visible = false;
+    }
+
+    if key.just_pressed(KeyCode::Escape) {
+        window.cursor.grab_mode = CursorGrabMode::None;
+        window.cursor.visible = true;
+    }
 }
 
 /// set up a simple 3D scene
