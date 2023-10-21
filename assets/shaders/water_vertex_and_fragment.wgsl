@@ -40,5 +40,5 @@ fn fragment(
 	input: VertexOutput,
 ) -> @location(0) vec4<f32> {
 	var height_offset: vec4<f32> = textureSample(base_color_texture, base_color_sampler, input.uv);
-    return height_offset;
+    return vec4(0.1529, 0.5764, 0.8470588, 1.0) * (height_offset.x/2.0 + 1.0);
 }

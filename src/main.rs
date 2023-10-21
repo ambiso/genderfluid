@@ -30,7 +30,7 @@ use smooth_bevy_cameras::{
 };
 use std::borrow::Cow;
 
-const SIZE: u32 = 128;
+const SIZE: u32 = 256;
 const WORKGROUP_SIZE: u32 = 8;
 
 // Define a struct to keep some information about our entity.
