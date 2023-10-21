@@ -186,8 +186,6 @@ fn setup(
         // metallic: 0.5,
         reflectance: 1.0,
         is_water: 1,
-        double_sided: true,
-        cull_mode: None,
         ..Default::default()
     });
 
@@ -210,8 +208,6 @@ fn setup(
         // metallic: 0.5,
         reflectance: 0.2,
         is_water: 0,
-        double_sided: true,
-        cull_mode: None,
         ..Default::default()
     });
 

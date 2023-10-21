@@ -1,3 +1,4 @@
+#import bevy_shader_utils::simplex_noise_3d simplex_noise_3d
 /* #import bevy_pbr::mesh_vertex_output MeshVertexOutput */
 #import bevy_pbr::mesh_bindings   mesh
 #import bevy_pbr::mesh_functions  mesh_position_local_to_clip
@@ -220,7 +221,15 @@ fn fragment(
             is_visible_water = 0.0;
         }
     }
-    return output_color * vec4(1.0, 1.0, 1.0, is_visible_water);
+    var noise_factor = 0.005;
+    var noise_scale = 50.0;
+    if (is_water == u32(1)) {
+        noise_factor = 0.02;
+        noise_scale = 500.0;
+    }
+    let n = simplex_noise_3d(vec3(in.uv * noise_scale, 0.0));
+    let noise = vec4(vec3(n), 0.0);
+    return (output_color + noise*noise_factor) * vec4(1.0, 1.0, 1.0, is_visible_water);
 }
 
 #import bevy_pbr::mesh_functions as mesh_functions

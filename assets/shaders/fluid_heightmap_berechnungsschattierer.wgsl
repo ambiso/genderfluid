@@ -13,9 +13,12 @@ var terrain_height_in: texture_storage_2d<r32float, read_write>;
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
-    let location_for_noise = vec3<f32>(f32(invocation_id.x) * 0.052, f32(invocation_id.y) * 0.052, 1.0);
+    let location_for_noise = vec3<f32>(f32(invocation_id.x) * 0.0052, f32(invocation_id.y) * 0.0052, 1.0);
     let noise = simplex_noise_3d(location_for_noise);
-    let height = max(0.0, noise - 0.5);
+    var height = noise * 2.0;
+    if (location.y < 100) {
+        height = 0.0;
+    }
 
     textureStore(height_out, location, vec4<f32>(max(height, 0.0), 0.0, 0.0, 1.0));
     textureStore(velocity, location, vec4(0.0, 0.0, 0.0, 1.0));
@@ -90,15 +93,15 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     let dt = 1.0 / 60.0;
     let damping = 0.9971349;
-    let k = 10.15820;
+    let k = 50.15820;
 
     let attracking_point = vec2(0.3, 0.7);
     let uv = vec2(f32(location.x) / f32(dim.x), f32(location.y) / f32(dim.y));
     let v: vec2<f32> = attracking_point - uv;
     var attracting_force = 0.0;
-    if (length(v) < 0.1) {
-        attracting_force = min(10.0, 1.0/((abs(v.x * v.x * v.x) + abs(v.y * v.y * v.y)))) / 10000.0;
-    }
+    // if (length(v) < 0.1) {
+    //     attracting_force = min(10.0, 1.0/((abs(v.x * v.x * v.x) + abs(v.y * v.y * v.y)))) / 10000.0;
+    // }
 
     // Calculate the total height difference from neighbors
     // let accel = k * ((height1) + (height2) + (height3) + (height4) - 4.0 * (height0));
