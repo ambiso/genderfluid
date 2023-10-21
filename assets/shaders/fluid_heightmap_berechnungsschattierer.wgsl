@@ -31,17 +31,14 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
     textureStore(height_out, location, color);
 }
 
-fn get_data(location: vec2<i32>, offset_x: i32, offset_y: i32) -> vec4<f32> {
+fn get_height(location: vec2<i32>, offset_x: i32, offset_y: i32) -> f32 {
     let value: vec4<f32> = textureLoad(height_in, location + vec2<i32>(offset_x, offset_y));
-    return value;
+    return value.x;
 }
 
-fn get_height(data: vec4<f32>) -> f32 {
-    return data.x;
-}
-
-fn get_vel(data: vec4<f32>) -> f32 {
-    return data.y;
+fn get_vel(location: vec2<i32>, offset_x: i32, offset_y: i32) -> f32 {
+    let value: vec4<f32> = textureLoad(velocity, location + vec2<i32>(offset_x, offset_y));
+    return value.x;
 }
 
 fn pack_data(height: f32, vel: f32) -> vec4<f32> {
@@ -52,19 +49,19 @@ fn pack_data(height: f32, vel: f32) -> vec4<f32> {
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
-    let d0 = get_data(location,  0,  0);
-    let d1 = get_data(location,  1,  0);
-    let d2 = get_data(location, -1,  0);
-    let d3 = get_data(location,  0,  1);
-    let d4 = get_data(location,  0, -1);
+    let height0 = get_height(location,  0,  0);
+    let height1 = get_height(location,  1,  0);
+    let height2 = get_height(location, -1,  0);
+    let height3 = get_height(location,  0,  1);
+    let height4 = get_height(location,  0, -1);
 
     let dt = 0.01;
 
-    let accel = get_height(d1) + get_height(d2) + get_height(d3) + get_height(d4) - 4.0 * get_height(d0);
-    let newVel = get_vel(d0) + 0.1 * accel * dt;
-    let newHeight = get_height(d0) + newVel * dt;
+    let k = 0.1;
+    let accel = k * (height1 + height2 + height3 + height4 - 4.0 * height0);
+    let new_vel = get_vel(location, 0, 0) + accel * dt;
+    textureStore(velocity, location, vec4(new_vel, 0.0, 0.0, 1.0));
 
-    storageBarrier();
-
-    textureStore(height_out, location, pack_data(newHeight, newVel));
+    let new_height = height0 + new_vel * dt;
+    textureStore(height_out, location, vec4(new_height, 0.0, 0.0, 1.0));
 }
