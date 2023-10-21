@@ -8,7 +8,11 @@ var velocity: texture_storage_2d<r32float, read_write>;
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
-    let height = sin(f32(location.x) / f32(num_workgroups.x)) + cos(f32(location.y) / f32(num_workgroups.y))/4.0 + 0.5;
+    // let height = (sin(f32(location.x) / f32(num_workgroups.x)) + cos(f32(location.y) / f32(num_workgroups.y)))/8.0 + 1.5;
+    var height = 1.0;
+    if (location.x > 100 && location.x < 128 && location.y > 100 && location.y < 128) {
+        height = 2.0;
+    }
     textureStore(height_out, location, vec4<f32>(max(height, 0.0), 0.0, 0.0, 1.0));
     textureStore(velocity, location, vec4(0.0, 0.0, 0.0, 1.0));
 }
@@ -40,7 +44,7 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     let dt = 0.01;
 
-    let k = 2.00;
+    let k = 0.1;
     let accel = k * (height1 + height2 + height3 + height4 - 4.0 * height0);
     let new_vel = get_vel(location, 0, 0) + accel * dt;
     textureStore(velocity, location, vec4(new_vel, 0.0, 0.0, 1.0));

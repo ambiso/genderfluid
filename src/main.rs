@@ -173,12 +173,15 @@ fn setup(
     let height1 = make_texture();
     let height2 = make_texture();
     let velocity = make_texture();
+    // let terrain_height = make_texture();
 
     let material_handle = custom_materials.add(WaterStandardMaterial {
         height: Some(height1.clone()), // TODO richtiges ding reinpassen
         velocity: Some(velocity.clone()),
         base_color: Color::hsla(200.0, 1.0, 0.5, 0.8),
         alpha_mode: AlphaMode::Blend,
+        // metallic: 0.5,
+        reflectance: 1.0,
         ..Default::default()
     });
 

@@ -203,6 +203,7 @@ fn fragment(
 #ifdef PREMULTIPLY_ALPHA
     output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
+    // return vec4(in.world_normal, 1.0);
     return output_color;
 }
 
@@ -274,21 +275,40 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
     var model = mesh.model;
 #endif
 
-#ifdef VERTEX_NORMALS
-#ifdef SKINNED
-    out.world_normal = bevy_pbr::skinning::skin_normals(model, vertex.normal);
-#else
-    out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal);
-#endif
-#endif
-
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;
 #endif
 
-#ifdef VERTEX_POSITIONS
     let dim = textureDimensions(height_map_texture);
-	var height_offset: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)), i32(out.uv.y * f32(dim.y))), 0).x;
+	let height_offset: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)), i32(out.uv.y * f32(dim.y))), 0).x;
+	let height_xp1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x))+1, i32(out.uv.y * f32(dim.y))), 0).x;
+	let height_zp1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)), i32(out.uv.y * f32(dim.y))+1), 0).x;
+	let height_xm1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)) - 1, i32(out.uv.y * f32(dim.y))), 0).x;
+	let height_zm1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)), i32(out.uv.y * f32(dim.y)) - 1), 0).x;
+    let dxz = 1.0;
+    let dhdx = (height_xp1 - height_offset)/dxz;
+    let dhdx2 = -(height_xm1 - height_offset)/dxz;
+    let dhdz = (height_zp1 - height_offset)/dxz;
+    let dhdz2 = -(height_zm1 - height_offset)/dxz;
+    let impact_factor = 10.0;
+    let normal1 = normalize(vec3(-dhdx * impact_factor, 1.0, -dhdz * impact_factor));
+    let normal2 = normalize(vec3(-dhdx * impact_factor, 1.0, -dhdz2 * impact_factor));
+    let normal3 = normalize(vec3(-dhdx2 * impact_factor, 1.0, -dhdz * impact_factor));
+    let normal4 = normalize(vec3(-dhdx2 * impact_factor, 1.0, -dhdz2 * impact_factor));
+
+    let normal = normalize(normal1 + normal2 + normal3 + normal4);
+
+
+#ifdef VERTEX_NORMALS
+#ifdef SKINNED
+    out.world_normal = bevy_pbr::skinning::skin_normals(model, normal);
+#else
+    out.world_normal = mesh_functions::mesh_normal_local_to_world(normal);
+    // out.world_normal = normal;
+#endif
+#endif
+
+#ifdef VERTEX_POSITIONS
     let position = vertex.position + vec3(0.0, height_offset, 0.0);
     out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(position, 1.0));
     out.position = mesh_functions::mesh_position_world_to_clip(out.world_position);
