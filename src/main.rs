@@ -175,10 +175,10 @@ fn setup(
     let height1 = make_texture();
     let height2 = make_texture();
     let velocity = make_texture();
-    // let terrain_height = make_texture();
+    let terrain_height = make_texture();
 
     let material_handle = custom_materials.add(WaterStandardMaterial {
-        height: Some(height1.clone()), // TODO richtiges ding reinpassen
+        height: Some(height1.clone()),
         velocity: Some(velocity.clone()),
         base_color: Color::hsla(200.0, 1.0, 0.5, 0.8),
         alpha_mode: AlphaMode::Blend,
@@ -199,10 +199,32 @@ fn setup(
         ..default()
     });
 
+    let terrain_material_handle = custom_materials.add(WaterStandardMaterial {
+        height: Some(terrain_height.clone()),
+        base_color: Color::hsla(22.0, 0.6, 0.28, 1.0),
+        alpha_mode: AlphaMode::Opaque,
+        // metallic: 0.5,
+        reflectance: 0.2,
+        ..Default::default()
+    });
+
+    commands.spawn(MaterialMeshBundle {
+        mesh: meshes.add(
+            shape::Plane {
+                size: 5.0,
+                subdivisions: SIZE,
+            }
+            .into(),
+        ),
+        material: terrain_material_handle,
+        ..default()
+    });
+
     commands.insert_resource(GenderfluidImage {
         height1,
         height2,
         velocity,
+        terrain_height,
     });
 }
 
@@ -256,6 +278,7 @@ struct GenderfluidImage {
     height1: Handle<Image>,
     height2: Handle<Image>,
     velocity: Handle<Image>,
+    terrain_height: Handle<Image>,
 }
 
 #[derive(Resource)]
@@ -274,6 +297,7 @@ fn queue_bind_group(
     let height1 = &gpu_images[&genderfluid_image.height1];
     let height2 = &gpu_images[&genderfluid_image.height2];
     let velocity = &gpu_images[&genderfluid_image.velocity];
+    let terrain_height = &gpu_images[&genderfluid_image.terrain_height];
 
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: None,
@@ -290,6 +314,10 @@ fn queue_bind_group(
             BindGroupEntry {
                 binding: 2,
                 resource: BindingResource::TextureView(&velocity.texture_view),
+            },
+            BindGroupEntry {
+                binding: 3,
+                resource: BindingResource::TextureView(&terrain_height.texture_view),
             },
         ],
     });
@@ -324,6 +352,7 @@ impl FromWorld for GenderfluidPipeline {
                         make_binding(0, StorageTextureAccess::ReadOnly),
                         make_binding(1, StorageTextureAccess::WriteOnly),
                         make_binding(2, StorageTextureAccess::ReadWrite),
+                        make_binding(3, StorageTextureAccess::ReadWrite),
                     ],
                 });
         let shader = world

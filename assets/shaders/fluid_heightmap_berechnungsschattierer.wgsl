@@ -6,6 +6,8 @@ var height_in: texture_storage_2d<r32float, read>;
 var height_out: texture_storage_2d<r32float, write>;
 @group(0) @binding(2)
 var velocity: texture_storage_2d<r32float, read_write>;
+@group(0) @binding(3)
+var terrain_height_in: texture_storage_2d<r32float, read_write>;
 
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
@@ -17,6 +19,11 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 
     textureStore(height_out, location, vec4<f32>(max(height, 0.0), 0.0, 0.0, 1.0));
     textureStore(velocity, location, vec4(0.0, 0.0, 0.0, 1.0));
+
+    let location_for_noise_for_terrain = vec3<f32>(f32(invocation_id.x) * 10.052, f32(invocation_id.y) * 0.152, 0.0);
+    let noise_for_terrain = simplex_noise_3d(location_for_noise);
+    let height_for_terrain = noise_for_terrain + 0.1;
+    textureStore(terrain_height_in, location, vec4<f32>(max(height_for_terrain, 0.0), 0.0, 0.0, 1.0));
 }
 
 fn get_height(location: vec2<i32>, offset_x: i32, offset_y: i32, center_height: f32, dim: vec2<u32>) -> f32 {

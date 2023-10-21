@@ -12,6 +12,11 @@ var velocity_texture: texture_2d<f32>;
 @group(1) @binding(16)
 var velocity_sampler: sampler;
 
+@group(1) @binding(17)
+var terrain_texture: texture_2d<f32>;
+@group(1) @binding(18)
+var terrain_sampler: sampler;
+
 // struct Vertex {
 //     @location(0) position: vec3<f32>,
 // };
