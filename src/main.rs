@@ -75,28 +75,35 @@ fn setup(
         ..default()
     });
 
-    let mut image = Image::new_fill(
-        Extent3d {
-            width: SIZE,
-            height: SIZE,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0, 0, 0, 255],
-        TextureFormat::Rgba8Unorm,
-    );
-    image.texture_descriptor.usage =
-        TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
-    let image = images.add(image);
+    let mut make_texture = || {
+        let mut texture = Image::new_fill(
+            Extent3d {
+                width: SIZE,
+                height: SIZE,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::R32Float,
+        );
+        texture.texture_descriptor.usage = TextureUsages::COPY_DST
+            | TextureUsages::STORAGE_BINDING
+            | TextureUsages::TEXTURE_BINDING;
+        let image = images.add(texture);
+        image
+    };
+    let height1 = make_texture();
+    let height2 = make_texture();
+    let velocity = make_texture();
 
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(SIZE as f32, SIZE as f32)),
-            ..default()
-        },
-        texture: image.clone(),
-        ..default()
-    });
+    // commands.spawn(SpriteBundle {
+    //     sprite: Sprite {
+    //         custom_size: Some(Vec2::new(SIZE as f32, SIZE as f32)),
+    //         ..default()
+    //     },
+    //     texture: image.clone(),
+    //     ..default()
+    // });
     // commands.spawn(Camera2dBundle::default());
 
     // plane
@@ -109,7 +116,8 @@ fn setup(
     let material_handle = custom_materials.add(CustomMaterial {
         color: Color::WHITE,
         size: SIZE,
-        heightmap: Some(image.clone()),
+        height: Some(height1.clone()), // TODO richtiges ding reinpassen
+        velocity: Some(velocity.clone()),
     });
 
     commands.spawn(MaterialMeshBundle {
@@ -124,7 +132,11 @@ fn setup(
         ..default()
     });
 
-    commands.insert_resource(GenderfluidImage(image));
+    commands.insert_resource(GenderfluidImage {
+        height1,
+        height2,
+        velocity,
+    });
 }
 
 pub struct GenderfluidComputePlugin;
@@ -148,8 +160,12 @@ impl Plugin for GenderfluidComputePlugin {
     }
 }
 
-#[derive(Resource, Clone, Deref, ExtractResource)]
-struct GenderfluidImage(Handle<Image>);
+#[derive(Resource, Clone, ExtractResource)]
+struct GenderfluidImage {
+    height1: Handle<Image>,
+    height2: Handle<Image>,
+    velocity: Handle<Image>,
+}
 
 #[derive(Resource)]
 struct GenderfluidImageBindGroup(BindGroup);
@@ -161,14 +177,26 @@ fn queue_bind_group(
     genderfluid_image: Res<GenderfluidImage>,
     render_device: Res<RenderDevice>,
 ) {
-    let view = &gpu_images[&genderfluid_image.0];
+    let height_in = &gpu_images[&genderfluid_image.height1];
+    let height_out = &gpu_images[&genderfluid_image.height2];
+    let velocity = &gpu_images[&genderfluid_image.velocity];
     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &pipeline.texture_bind_group_layout,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: BindingResource::TextureView(&view.texture_view),
-        }],
+        entries: &[
+            BindGroupEntry {
+                binding: 0,
+                resource: BindingResource::TextureView(&height_in.texture_view),
+            },
+            BindGroupEntry {
+                binding: 1,
+                resource: BindingResource::TextureView(&height_out.texture_view),
+            },
+            BindGroupEntry {
+                binding: 2,
+                resource: BindingResource::TextureView(&velocity.texture_view),
+            },
+        ],
     });
     commands.insert_resource(GenderfluidImageBindGroup(bind_group));
 }
@@ -182,21 +210,22 @@ pub struct GenderfluidPipeline {
 
 impl FromWorld for GenderfluidPipeline {
     fn from_world(world: &mut World) -> Self {
+        let make_binding = |binding: u32| BindGroupLayoutEntry {
+            binding,
+            visibility: ShaderStages::COMPUTE,
+            ty: BindingType::StorageTexture {
+                access: StorageTextureAccess::ReadWrite,
+                format: TextureFormat::R32Float,
+                view_dimension: TextureViewDimension::D2,
+            },
+            count: None,
+        };
         let texture_bind_group_layout =
             world
                 .resource::<RenderDevice>()
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: None,
-                    entries: &[BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::ReadWrite,
-                            format: TextureFormat::Rgba8Unorm,
-                            view_dimension: TextureViewDimension::D2,
-                        },
-                        count: None,
-                    }],
+                    entries: &[make_binding(0), make_binding(1), make_binding(2)],
                 });
         let shader = world
             .resource::<AssetServer>()
@@ -319,7 +348,10 @@ pub struct CustomMaterial {
     size: u32,
     #[texture(1)]
     #[sampler(2)]
-    heightmap: Option<Handle<Image>>,
+    height: Option<Handle<Image>>,
+    #[texture(3)]
+    #[sampler(4)]
+    velocity: Option<Handle<Image>>,
 }
 
 impl Material for CustomMaterial {

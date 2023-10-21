@@ -1,5 +1,9 @@
 @group(0) @binding(0)
-var texture: texture_storage_2d<rgba8unorm, read_write>;
+var height_in: texture_storage_2d<r32float, read_write>;
+@group(0) @binding(1)
+var height_out: texture_storage_2d<r32float, read_write>;
+@group(0) @binding(2)
+var velocity: texture_storage_2d<r32float, read_write>;
 
 fn hash(value: u32) -> u32 {
     var state = value;
@@ -24,11 +28,11 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
     let alive = randomNumber > 0.9;
     let color = vec4<f32>(f32(alive));
 
-    textureStore(texture, location, color);
+    textureStore(height_out, location, color);
 }
 
 fn get_data(location: vec2<i32>, offset_x: i32, offset_y: i32) -> vec4<f32> {
-    let value: vec4<f32> = textureLoad(texture, location + vec2<i32>(offset_x, offset_y));
+    let value: vec4<f32> = textureLoad(height_in, location + vec2<i32>(offset_x, offset_y));
     return value;
 }
 
@@ -62,5 +66,5 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     storageBarrier();
 
-    textureStore(texture, location, pack_data(newHeight, newVel));
+    textureStore(height_out, location, pack_data(newHeight, newVel));
 }
