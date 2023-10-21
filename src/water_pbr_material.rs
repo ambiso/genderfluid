@@ -320,6 +320,13 @@ pub struct WaterStandardMaterial {
     #[texture(15)]
     #[sampler(16)]
     pub velocity: Option<Handle<Image>>,
+
+    #[texture(17)]
+    #[sampler(18)]
+    pub terrain: Option<Handle<Image>>,
+
+    #[uniform(19)]
+    pub is_water: u32,
 }
 
 impl Default for WaterStandardMaterial {
@@ -355,6 +362,8 @@ impl Default for WaterStandardMaterial {
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
             height: None,
             velocity: None,
+            is_water: 0,
+            terrain: None,
         }
     }
 }

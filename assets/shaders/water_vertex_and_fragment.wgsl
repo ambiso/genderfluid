@@ -17,6 +17,9 @@ var terrain_texture: texture_2d<f32>;
 @group(1) @binding(18)
 var terrain_sampler: sampler;
 
+@group(1) @binding(19)
+var<uniform> is_water: u32;
+
 // struct Vertex {
 //     @location(0) position: vec3<f32>,
 // };
@@ -209,7 +212,15 @@ fn fragment(
     output_color = pbr_functions::premultiply_alpha(pbr_bindings::material.flags, output_color);
 #endif
     // return vec4(in.world_normal, 1.0);
-    return output_color;
+    var is_visible_water: f32 = 1.0;
+    if (is_water == u32(1)) {
+        let dim = textureDimensions(height_map_texture);
+	    let height_offset: f32 = textureSample(height_map_texture, height_map_sampler, in.uv).x;
+        if (height_offset < 0.01) {
+            is_visible_water = 0.0;
+        }
+    }
+    return output_color * vec4(1.0, 1.0, 1.0, is_visible_water);
 }
 
 #import bevy_pbr::mesh_functions as mesh_functions
@@ -286,7 +297,15 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 
     let dim = textureDimensions(height_map_texture);
 	let height_offset: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)), i32(out.uv.y * f32(dim.y))), 0).x;
-	let height_xp1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x))+1, i32(out.uv.y * f32(dim.y))), 0).x;
+	
+    
+    var terrain_height_offset: f32 = 0.0;
+	if (is_water != u32(0)) {
+        let terimdim = textureDimensions(terrain_texture);
+        terrain_height_offset = textureLoad(terrain_texture, vec2<i32>(i32(out.uv.x * f32(terimdim.x)), i32(out.uv.y * f32(terimdim.y))), 0).x;
+    }
+
+    let height_xp1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x))+1, i32(out.uv.y * f32(dim.y))), 0).x;
 	let height_zp1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)), i32(out.uv.y * f32(dim.y))+1), 0).x;
 	let height_xm1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)) - 1, i32(out.uv.y * f32(dim.y))), 0).x;
 	let height_zm1: f32 = textureLoad(height_map_texture, vec2<i32>(i32(out.uv.x * f32(dim.x)), i32(out.uv.y * f32(dim.y)) - 1), 0).x;
@@ -314,7 +333,7 @@ fn vertex(vertex_no_morph: Vertex) -> MeshVertexOutput {
 #endif
 
 #ifdef VERTEX_POSITIONS
-    let position = vertex.position + vec3(0.0, height_offset, 0.0);
+    let position = vertex.position + vec3(0.0, height_offset + terrain_height_offset, 0.0);
     out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(position, 1.0));
     out.position = mesh_functions::mesh_position_world_to_clip(out.world_position);
 #endif

@@ -180,10 +180,14 @@ fn setup(
     let material_handle = custom_materials.add(WaterStandardMaterial {
         height: Some(height1.clone()),
         velocity: Some(velocity.clone()),
+        terrain: Some(terrain_height.clone()),
         base_color: Color::hsla(200.0, 1.0, 0.5, 0.8),
         alpha_mode: AlphaMode::Blend,
         // metallic: 0.5,
         reflectance: 1.0,
+        is_water: 1,
+        double_sided: true,
+        cull_mode: None,
         ..Default::default()
     });
 
@@ -205,6 +209,9 @@ fn setup(
         alpha_mode: AlphaMode::Opaque,
         // metallic: 0.5,
         reflectance: 0.2,
+        is_water: 0,
+        double_sided: true,
+        cull_mode: None,
         ..Default::default()
     });
 
