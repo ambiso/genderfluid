@@ -47,6 +47,17 @@ impl Movable {
     }
 }
 
+#[derive(Default, Component)]
+pub struct SphereController {
+    pub enabled: bool,
+    pub translate_sensitivity: f32,
+}
+
+#[derive(Event)]
+pub enum SphereControlEvent {
+    Translate(Vec3),
+}
+
 // const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
 //     MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
 
@@ -67,8 +78,9 @@ fn main() {
             LookTransformPlugin,
             MaterialPlugin::<WaterStandardMaterial>::default(),
         ))
+        .add_event::<SphereControlEvent>()
         .add_systems(Startup, setup)
-        .add_systems(Update, move_cube)
+        .add_systems(Update, (sphere_input_map, move_sphere))
         .run();
 }
 
@@ -161,14 +173,23 @@ fn setup(
 }
 
 // This system will move all Movable entities with a Transform
-fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
-    for (mut transform, mut cube) in &mut cubes {
-        // Check if the entity moved too far from its spawn, if so invert the moving direction.
-        if (cube.spawn - transform.translation).length() > cube.max_distance {
-            cube.speed *= -1.0;
+pub fn move_sphere(
+    mut cubes: Query<(&mut Transform, &mut SphereController)>,
+    mut events: EventReader<SphereControlEvent>,
+    timer: Res<Time>,
+) {
+    for (mut transform, controller) in &mut cubes {
+        if !controller.enabled {
+            continue;
         }
-        let direction = transform.local_x();
-        transform.translation += direction * cube.speed * timer.delta_seconds();
+
+        for event in events.iter() {
+            match event {
+                SphereControlEvent::Translate(dir) => {
+                    transform.translation += *dir * timer.delta_seconds();
+                }
+            }
+        }
     }
 }
 
@@ -376,5 +397,40 @@ impl render_graph::Node for GenderfluidNode {
         }
 
         Ok(())
+    }
+}
+
+// Add this system to handle sphere input
+pub fn sphere_input_map(
+    mut events: EventWriter<SphereControlEvent>,
+    keyboard: Res<Input<KeyCode>>,
+    controllers: Query<&SphereController>,
+) {
+    // Can only control one sphere at a time.
+    let controller = if let Some(controller) = controllers.iter().find(|c| c.enabled) {
+        controller
+    } else {
+        return;
+    };
+
+    let SphereController {
+        translate_sensitivity,
+        ..
+    } = *controller;
+
+    for (key, dir) in [
+        (KeyCode::T, Vec3::Z),
+        (KeyCode::F, -Vec3::X),
+        (KeyCode::G, -Vec3::Z),
+        (KeyCode::H, Vec3::X),
+        (KeyCode::E, Vec3::Y),
+        (KeyCode::C, -Vec3::Y),
+    ]
+    .iter()
+    .cloned()
+    {
+        if keyboard.pressed(key) {
+            events.send(SphereControlEvent::Translate(translate_sensitivity * dir));
+        }
     }
 }
