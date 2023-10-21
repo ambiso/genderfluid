@@ -353,8 +353,8 @@ impl Default for WaterStandardMaterial {
             parallax_depth_scale: 0.1,
             max_parallax_layer_count: 16.0,
             parallax_mapping_method: ParallaxMappingMethod::Occlusion,
-			height: None,
-			velocity: None,
+            height: None,
+            velocity: None,
         }
     }
 }

@@ -17,11 +17,12 @@ use bevy::{
     },
     window::WindowPlugin,
 };
-use water_pbr_material::WaterStandardMaterial;
 use smooth_bevy_cameras::{
-    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin}, LookTransformPlugin,
+    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
+    LookTransformPlugin,
 };
 use std::borrow::Cow;
+use water_pbr_material::WaterStandardMaterial;
 
 const SIZE: u32 = 256;
 const WORKGROUP_SIZE: u32 = 8;
@@ -377,4 +378,3 @@ impl render_graph::Node for GenderfluidNode {
         Ok(())
     }
 }
-
