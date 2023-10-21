@@ -33,6 +33,26 @@ use std::borrow::Cow;
 const SIZE: u32 = 128;
 const WORKGROUP_SIZE: u32 = 8;
 
+// Define a struct to keep some information about our entity.
+// Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.
+#[derive(Component)]
+struct Movable {
+    spawn: Vec3,
+    max_distance: f32,
+    speed: f32,
+}
+
+// Implement a utility function for easier Movable struct creation.
+impl Movable {
+    fn new(spawn: Vec3) -> Self {
+        Movable {
+            spawn,
+            max_distance: 5.0,
+            speed: 2.0,
+        }
+    }
+}
+
 // const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
 //     MeshVertexAttribute::new("BlendColor", 988540917, VertexFormat::Float32x4);
 
@@ -54,6 +74,7 @@ fn main() {
             MaterialPlugin::<CustomMaterial>::default(),
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, move_cube)
         .run();
 }
 
@@ -61,7 +82,7 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    //mut materials: ResMut<Assets<StandardMaterial>>,
+    mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut custom_materials: ResMut<Assets<CustomMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
@@ -82,8 +103,21 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-    // camera
-    // commands.spawn();
+    // Add a cube to visualize translation.
+    let entity_spawn = Vec3::ZERO;
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 1.0,
+                sectors: 8,
+                stacks: 8,
+            })),
+            material: standard_materials.add(Color::WHITE.into()),
+            transform: Transform::from_translation(entity_spawn),
+            ..default()
+        },
+        Movable::new(entity_spawn),
+    ));
 
     let mut make_texture = || {
         let mut texture = Image::new_fill(
@@ -106,23 +140,6 @@ fn setup(
     let height2 = make_texture();
     let velocity = make_texture();
 
-    // commands.spawn(SpriteBundle {
-    //     sprite: Sprite {
-    //         custom_size: Some(Vec2::new(SIZE as f32, SIZE as f32)),
-    //         ..default()
-    //     },
-    //     texture: image.clone(),
-    //     ..default()
-    // });
-    // commands.spawn(Camera2dBundle::default());
-
-    // plane
-    // let material_handle = materials.add(StandardMaterial {
-    //     base_color_texture: Some(image.clone()),
-    //     alpha_mode: AlphaMode::Blend,
-    //     unlit: true,
-    //     ..default()
-    // });
     let material_handle = custom_materials.add(CustomMaterial {
         color: Color::WHITE,
         size: SIZE,
@@ -149,10 +166,15 @@ fn setup(
     });
 }
 
-fn move_camera_system(mut cameras: Query<&mut LookTransform>) {
-    // Later, another system will update the `Transform` and apply smoothing automatically.
-    for mut c in cameras.iter_mut() {
-        c.target += Vec3::new(1.0, 1.0, 1.0);
+// This system will move all Movable entities with a Transform
+fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
+    for (mut transform, mut cube) in &mut cubes {
+        // Check if the entity moved too far from its spawn, if so invert the moving direction.
+        if (cube.spawn - transform.translation).length() > cube.max_distance {
+            cube.speed *= -1.0;
+        }
+        let direction = transform.local_x();
+        transform.translation += direction * cube.speed * timer.delta_seconds();
     }
 }
 
