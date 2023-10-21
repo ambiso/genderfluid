@@ -109,8 +109,8 @@ fn setup(
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: 1.0,
-                sectors: 8,
-                stacks: 8,
+                sectors: 32,
+                stacks: 32,
             })),
             material: standard_materials.add(Color::WHITE.into()),
             transform: Transform::from_translation(entity_spawn),
