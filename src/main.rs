@@ -225,17 +225,6 @@ pub fn move_sphere(
     }
 }
 
-fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
-    for (mut transform, mut cube) in &mut cubes {
-        // Check if the entity moved too far from its spawn, if so invert the moving direction.
-        if (cube.spawn - transform.translation).length() > cube.max_distance {
-            cube.speed *= -1.0;
-        }
-        let direction = transform.local_x();
-        transform.translation += direction * cube.speed * timer.delta_seconds();
-    }
-}
-
 pub struct GenderfluidComputePlugin;
 
 impl Plugin for GenderfluidComputePlugin {
