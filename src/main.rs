@@ -80,8 +80,28 @@ fn main() {
         ))
         .add_event::<SphereControlEvent>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (sphere_input_map, move_sphere))
+        .add_systems(Update, (sphere_input_map, move_sphere, cursor_grab_system))
         .run();
+}
+
+use bevy::window::CursorGrabMode;
+
+fn cursor_grab_system(
+    mut windows: Query<&mut Window>,
+    btn: Res<Input<MouseButton>>,
+    key: Res<Input<KeyCode>>,
+) {
+    let mut window = windows.single_mut();
+
+    if btn.just_pressed(MouseButton::Left) {
+        window.cursor.grab_mode = CursorGrabMode::Locked;
+        window.cursor.visible = false;
+    }
+
+    if key.just_pressed(KeyCode::Escape) {
+        window.cursor.grab_mode = CursorGrabMode::None;
+        window.cursor.visible = true;
+    }
 }
 
 /// set up a simple 3D scene
@@ -99,6 +119,7 @@ fn setup(
     commands
         .spawn(Camera3dBundle::default())
         .insert(FpsCameraBundle::new(controllllller, eye, target, Vec3::Y));
+
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -109,21 +130,28 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
+
     // Add a cube to visualize translation.
     let entity_spawn = Vec3::ZERO;
-    commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: 1.0,
-                sectors: 32,
-                stacks: 32,
-            })),
-            material: standard_materials.add(Color::WHITE.into()),
-            transform: Transform::from_translation(entity_spawn),
-            ..default()
-        },
-        Movable::new(entity_spawn),
-    ));
+    commands
+        .spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::UVSphere {
+                    radius: 1.0,
+                    sectors: 32,
+                    stacks: 32,
+                })),
+                material: standard_materials.add(Color::WHITE.into()),
+                transform: Transform::from_translation(entity_spawn),
+                ..default()
+            },
+            Movable::new(entity_spawn),
+        ))
+        .insert(SphereController {
+            enabled: true,
+            translate_sensitivity: 2.0,
+            ..Default::default()
+        });
 
     let mut make_texture = || {
         let mut texture = Image::new_fill(
@@ -175,11 +203,11 @@ fn setup(
 
 // This system will move all Movable entities with a Transform
 pub fn move_sphere(
-    mut cubes: Query<(&mut Transform, &mut SphereController)>,
+    mut spheres: Query<(&mut Transform, &mut SphereController)>,
     mut events: EventReader<SphereControlEvent>,
     timer: Res<Time>,
 ) {
-    for (mut transform, controller) in &mut cubes {
+    for (mut transform, controller) in &mut spheres {
         if !controller.enabled {
             continue;
         }
@@ -187,10 +215,24 @@ pub fn move_sphere(
         for event in events.iter() {
             match event {
                 SphereControlEvent::Translate(dir) => {
-                    transform.translation += *dir * timer.delta_seconds();
+                    let movement = *dir * timer.delta_seconds();
+                    // println!("moving: {}", movement);
+                    transform.translation += movement;
+                    println!("transform: {}", transform.translation);
                 }
             }
         }
+    }
+}
+
+fn move_cube(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
+    for (mut transform, mut cube) in &mut cubes {
+        // Check if the entity moved too far from its spawn, if so invert the moving direction.
+        if (cube.spawn - transform.translation).length() > cube.max_distance {
+            cube.speed *= -1.0;
+        }
+        let direction = transform.local_x();
+        transform.translation += direction * cube.speed * timer.delta_seconds();
     }
 }
 
