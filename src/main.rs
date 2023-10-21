@@ -24,9 +24,13 @@ use bevy::{
     },
     window::WindowPlugin,
 };
+use smooth_bevy_cameras::{
+    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
+    LookTransform, LookTransformBundle, LookTransformPlugin, Smoother,
+};
 use std::borrow::Cow;
 
-const SIZE: u32 = 256;
+const SIZE: u32 = 128;
 const WORKGROUP_SIZE: u32 = 8;
 
 // const ATTRIBUTE_BLEND_COLOR: MeshVertexAttribute =
@@ -45,6 +49,8 @@ fn main() {
                 ..default()
             }),
             GenderfluidComputePlugin,
+            FpsCameraPlugin::default(),
+            LookTransformPlugin,
             MaterialPlugin::<CustomMaterial>::default(),
         ))
         .add_systems(Startup, setup)
@@ -59,6 +65,13 @@ fn setup(
     mut custom_materials: ResMut<Assets<CustomMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
+    let eye = Vec3::new(-2.0, 5.0, 5.1);
+    let target = Vec3::default();
+    let controllllller = FpsCameraController::default();
+
+    commands
+        .spawn(Camera3dBundle::default())
+        .insert(FpsCameraBundle::new(controllllller, eye, target, Vec3::Y));
     // light
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -70,10 +83,7 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    // commands.spawn();
 
     let mut make_texture = || {
         let mut texture = Image::new_fill(
@@ -137,6 +147,13 @@ fn setup(
         height2,
         velocity,
     });
+}
+
+fn move_camera_system(mut cameras: Query<&mut LookTransform>) {
+    // Later, another system will update the `Transform` and apply smoothing automatically.
+    for mut c in cameras.iter_mut() {
+        c.target += Vec3::new(1.0, 1.0, 1.0);
+    }
 }
 
 pub struct GenderfluidComputePlugin;
@@ -229,7 +246,11 @@ impl FromWorld for GenderfluidPipeline {
                 .resource::<RenderDevice>()
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: None,
-                    entries: &[make_binding(0, StorageTextureAccess::ReadOnly), make_binding(1, StorageTextureAccess::WriteOnly), make_binding(2, StorageTextureAccess::ReadWrite)],
+                    entries: &[
+                        make_binding(0, StorageTextureAccess::ReadOnly),
+                        make_binding(1, StorageTextureAccess::WriteOnly),
+                        make_binding(2, StorageTextureAccess::ReadWrite),
+                    ],
                 });
         let shader = world
             .resource::<AssetServer>()

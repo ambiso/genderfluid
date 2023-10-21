@@ -1571,6 +1571,7 @@ name = "genderfluid"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "smooth-bevy-cameras",
 ]
 
 [[package]]
@@ -2853,6 +2854,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74212e6bbe9a4352329b2f68ba3130c15a3f26fe88ff22dbdc6cdd58fa85e99c"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "smooth-bevy-cameras"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "555d8849194527d0634400959632e3427249244c98811209fa6428a3fa63fd74"
+dependencies = [
+ "approx",
+ "bevy",
 ]
 
 [[package]]
