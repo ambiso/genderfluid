@@ -3,6 +3,7 @@
 //! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
 //! is rendered to the screen.
 
+mod orbit_camera;
 mod water_pbr_material;
 
 use bevy::{
@@ -21,10 +22,8 @@ use bevy::{
     window::WindowPlugin,
 };
 use bevy_shader_utils::ShaderUtilsPlugin;
-use smooth_bevy_cameras::{
-    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
-    LookTransformPlugin,
-};
+use orbit_camera::{ControlEvent, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin};
+use smooth_bevy_cameras::LookTransformPlugin;
 use std::borrow::Cow;
 use water_pbr_material::WaterStandardMaterial;
 
@@ -78,7 +77,7 @@ fn main() {
                 ..default()
             }),
             GenderfluidComputePlugin,
-            FpsCameraPlugin::default(),
+            OrbitCameraPlugin::default(),
             LookTransformPlugin,
             ShaderUtilsPlugin,
             MaterialPlugin::<WaterStandardMaterial>::default(),
@@ -92,6 +91,7 @@ fn main() {
                 move_sphere,
                 cursor_grab_system,
                 prepare_fluid_compute_uniforms,
+                update_camera_target,
             ),
         )
         .run();
@@ -117,6 +117,13 @@ fn cursor_grab_system(
     }
 }
 
+fn update_camera_target(
+    mut events: EventWriter<ControlEvent>,
+    player: Query<&Transform, With<Player>>,
+) {
+    events.send(ControlEvent::NewTarget(player.single().translation));
+}
+
 #[derive(Resource, Reflect, Debug, Clone, TypeUuid, ShaderType, Pod, Zeroable, Copy)]
 #[repr(C)]
 #[uuid = "61e3fe7d-e307-4d7f-a060-35fff2cba963"]
@@ -138,7 +145,7 @@ fn setup(
 ) {
     let eye = Vec3::new(-2.0, 5.0, 5.1);
     let target = Vec3::default();
-    let controllllller = FpsCameraController::default();
+    let controllllller = OrbitCameraController::default();
 
     let plant = asset_server.load("glowingflower2.glb#Scene0");
     // to position our 3d model, simply use the Transform
@@ -151,7 +158,7 @@ fn setup(
 
     commands
         .spawn(Camera3dBundle::default())
-        .insert(FpsCameraBundle::new(controllllller, eye, target, Vec3::Y));
+        .insert(OrbitCameraBundle::new(controllllller, eye, target, Vec3::Y));
 
     // light
     commands.spawn(PointLightBundle {
@@ -576,12 +583,10 @@ pub fn sphere_input_map(
     } = *controller;
 
     for (key, dir) in [
-        (KeyCode::T, Vec3::Z),
-        (KeyCode::F, -Vec3::X),
-        (KeyCode::G, -Vec3::Z),
-        (KeyCode::H, Vec3::X),
-        (KeyCode::E, Vec3::Y),
-        (KeyCode::C, -Vec3::Y),
+        (KeyCode::W, Vec3::Z),
+        (KeyCode::A, -Vec3::X),
+        (KeyCode::S, -Vec3::Z),
+        (KeyCode::D, Vec3::X),
     ]
     .iter()
     .cloned()
