@@ -64,16 +64,9 @@ impl Movable {
 pub struct Plant {
     pub health: f32,
     pub is_no_longer_baby: bool,
+	pub was_se_fuer_ne_zelle_is: (usize, usize),
 }
 
-impl Default for Plant {
-    fn default() -> Self {
-        Self {
-            health: -1.0,
-            is_no_longer_baby: false,
-        }
-    }
-}
 #[derive(Resource)]
 pub struct PlantGrid {
     pub grid: Vec<Vec<Option<Entity>>>,
@@ -239,25 +232,24 @@ fn update_plant_health(
     plant_asset: Res<PlantAsset>,
     spheres: Query<&Transform, (With<SphereController>, Without<Plant>)>,
 ) {
-    let ball_transform = spheres.single();
+    // let ball_transform = spheres.single();
 
-    let current_time = time.elapsed_seconds() as f32;
-    let dt = time.delta_seconds() as f32;
+    // let current_time = time.elapsed_seconds() as f32;
+    // let dt = time.delta_seconds() as f32;
 
-    for i in 0..(SIZE / CELL_SIZE) {
-        for j in 0..(SIZE / CELL_SIZE) {
-            grow_plant_at(
-                i,
-                j,
-                dt,
-                ball_transform,
-                &mut plant_grid,
-                &mut plants,
-                &mut commands,
-                &plant_asset,
-            )
-        }
-    }
+
+            // grow_plant_at(
+                // i,
+                // j,
+                // dt,
+                // ball_transform,
+                // &mut plant_grid,
+                // &mut plants,
+                // &mut commands,
+                // &plant_asset,
+            // )
+        // }
+    // }
 }
 
 fn health_curve(x: f32, difficulty: f32) -> f32 {
@@ -296,47 +288,49 @@ fn grow_plant_at(
     dt: f32,
     ball_transform: &Transform,
     plant_grid: &mut ResMut<PlantGrid>,
-    plants: &mut Query<(&mut Transform, &mut Plant, &mut Visibility)>,
+	plant: (&mut Transform, &mut Plant, &mut Visibility),
     commands: &mut Commands,
     plant_asset: &PlantAsset,
+	terrain_height: f32,
+	water_height: f32,
 ) {
-    if let Some(plant) = plant_grid.grid[i as usize][j as usize] {
-        if let Ok((mut transform, mut actual_plant, mut visibility)) = plants.get_mut(plant) {
-            transform.scale += 0.01 * dt;
-            actual_plant.health = health_curve(transform.scale.max_element() * 100.0, 1.5);
-            // println!("Health: {}", actual_plant.health);
+    if let Some(plant_entity) = plant_grid.grid[i as usize][j as usize] {
+        let (mut transform, mut actual_plant, mut visibility) = plant;
+            actual_plant.health = health_curve(water_height * 5.0, 1.25);
+			transform.scale = Vec3::splat((actual_plant.health + 0.001337).min(0.05).max(0.0));
+            println!("Health: {}", actual_plant.health);
             if actual_plant.is_no_longer_baby && actual_plant.health <= 0.0 {
                 *visibility = Visibility::Hidden;
             } else if !actual_plant.is_no_longer_baby && actual_plant.health > 0.0 {
                 actual_plant.is_no_longer_baby = true;
             }
-        }
+        
     } else if plant_grid.grid[i as usize][j as usize].is_none() {
-        let mut rng = rand::thread_rng();
+        // let mut rng = rand::thread_rng();
 
-        let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
-        let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+        // let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+        // let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
 
-        let world_x = (i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0) * 0.02;
-        let world_z = (j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0) * 0.02;
+        // let world_x = (i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0) * 0.02;
+        // let world_z = (j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0) * 0.02;
 
-        if should_spawn_based_on_distance(&ball_transform, world_x, world_z, 1.0337) {
+        // if should_spawn_based_on_distance(&ball_transform, world_x, world_z, 1.0337) {
             // println!("Spawn the object!");
 
             // Spawn a new plant entity
-            let new_plant = commands
-                .spawn(SceneBundle {
-                    scene: plant_asset.0.clone(),
-                    transform: Transform::from_xyz(world_x, 2.0, world_z)
-                        .with_scale(Vec3::splat(0.02)),
-                    ..Default::default()
-                })
-                .insert(Plant::default())
-                .id();
+            // let new_plant = commands
+                // .spawn(SceneBundle {
+                    // scene: plant_asset.0.clone(),
+                    // transform: Transform::from_xyz(world_x, terrain_height, world_z)
+                        // .with_scale(Vec3::splat(0.02)),
+                    // ..Default::default()
+                // })
+                // .insert(Plant::default())
+                // .id();
 
             // Update the grid
-            plant_grid.grid[i as usize][j as usize] = Some(new_plant);
-        }
+            // plant_grid.grid[i as usize][j as usize] = Some(new_plant);
+        // }
     }
 }
 
@@ -488,8 +482,7 @@ fn setup(
         size: std::mem::size_of::<QueryPosition>() as u64 * EXTRACT_BUFFER_SIZE as u64,
         usage: BufferUsages::STORAGE
             | BufferUsages::COPY_DST
-            | BufferUsages::COPY_SRC
-            | BufferUsages::MAP_WRITE,
+            | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
 
@@ -514,17 +507,14 @@ fn setup(
     let extract_height_mapped = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid extract height"),
         size: std::mem::size_of::<f32>() as u64 * EXTRACT_BUFFER_SIZE as u64,
-        usage: BufferUsages::STORAGE
-            | BufferUsages::COPY_DST
-            | BufferUsages::MAP_READ
-            | BufferUsages::COPY_SRC,
+        usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
         mapped_at_creation: true,
     });
 
     let extract_terrain_height_mapped = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid extract terrain height"),
         size: std::mem::size_of::<f32>() as u64 * EXTRACT_BUFFER_SIZE as u64,
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
         mapped_at_creation: true,
     });
 
@@ -564,7 +554,6 @@ pub fn move_sphere(
                     let movement = *dir * timer.delta_seconds();
                     // println!("moving: {}", movement);
                     transform.translation += movement;
-                    println!("transform: {}", transform.translation);
                 }
             }
         }
@@ -611,8 +600,15 @@ fn prepare_fluid_compute_uniforms(
     render_device: Res<RenderDevice>,
     genderfluidimage: ResMut<GenderfluidImage>,
     mut player: Query<&mut Transform, (With<Player>, Without<Plant>)>,
-    mut plants: Query<&mut Transform, (With<Plant>, Without<Player>)>,
+	time: Res<Time>,
+    mut plant_grid: ResMut<PlantGrid>,
+    mut plants: Query<(&mut Transform, &mut Plant, &mut Visibility), Without<Player>>,
+    mut commands: Commands,
+    plant_asset: Res<PlantAsset>,
 ) {
+    let current_time = time.elapsed_seconds() as f32;
+    let dt = time.delta_seconds() as f32;
+
     // write `time.seconds_since_startup` as a `&[u8]`
     // into the time buffer at offset 0.
     render_queue.write_buffer(
@@ -633,10 +629,35 @@ fn prepare_fluid_compute_uniforms(
         y: ((translation.z / 5.0 + 0.5) * SIZE as f32) as i32,
     };
     query_positions.push(map_translation(player.single().translation));
+	
     for plant in plants.into_iter() {
-        query_positions.push(map_translation(plant.translation));
+        query_positions.push(map_translation(plant.0.translation));
     }
-    render_queue.write_buffer(
+	let mut rng = rand::thread_rng();
+    let mut new_plant_query_offset = query_positions.len();
+	let mut spawn_positions = vec![];
+	let mut spawn_grid_positions = vec![];
+    for i in 0..(SIZE / CELL_SIZE) {
+        for j in 0..(SIZE / CELL_SIZE) {
+			
+        let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+        let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+			let world_x = (i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0) * 0.02;
+			let world_z = (j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0) * 0.02;
+			
+			let existing_pos = player.single().translation;
+			let distance_vec = Vec2::new(world_x - existing_pos.x, world_z - existing_pos.z);
+			let distance = distance_vec.length();
+			if distance < 0.2 && plant_grid.grid[i as usize][j as usize].is_none() {
+				let spawn_pos = Vec3::new(world_x, 0.0, world_z);
+				spawn_positions.push(spawn_pos);
+				spawn_grid_positions.push((i, j));
+				query_positions.push(map_translation(spawn_pos));
+			}
+		}
+	}
+	
+	render_queue.write_buffer(
         &genderfluidimage.extract_positions,
         0,
         bevy::core::cast_slice(&query_positions),
@@ -683,10 +704,53 @@ fn prepare_fluid_compute_uniforms(
         .map(|h| f32::from_ne_bytes(h.try_into().unwrap()))
         .collect();
     let y_trans = player.single().translation.y;
-    player.single_mut().translation.y = (y_trans * 0.99 + (height[0] + terrain_height[0]))/2.0;
+	let new_y_trans = height[0] + terrain_height[0];
+	if new_y_trans.is_finite() && new_y_trans.abs() < 10.0 {
+		println!("now changing to {}", y_trans);
+		player.single_mut().translation.y = new_y_trans + 0.1337;
+	}
+	dbg!(height[0]);
+	
     for (i, mut plant) in plants.iter_mut().enumerate() {
-        plant.translation.y = height[i+1] + terrain_height[i+1];
+        plant.0.translation.y = terrain_height[i+1];
+		grow_plant_at(
+			plant.1.was_se_fuer_ne_zelle_is.0 as u32,
+			plant.1.was_se_fuer_ne_zelle_is.1 as u32,
+			dt,
+			player.single(),
+			&mut plant_grid,
+			(&mut *plant.0, &mut *plant.1, &mut plant.2),
+			&mut commands,
+			&plant_asset,
+			terrain_height[i+1],
+			height[i+1],
+		);
     }
+	
+	for i in new_plant_query_offset..query_positions.len() {
+		if height[0] > 0.02 {
+			dbg!(height[i]);
+		let (actual_i, actual_j) = spawn_grid_positions[i - new_plant_query_offset];
+		let world_pos = spawn_positions[i - new_plant_query_offset];
+		// Spawn a new plant entity
+		let new_plant = commands
+			.spawn(SceneBundle {
+				scene: plant_asset.0.clone(),
+				transform: Transform::from_xyz(world_pos.x, terrain_height[i], world_pos.z)
+					.with_scale(Vec3::splat(0.0)),
+				..Default::default()
+			})
+			.insert(Plant {
+            health: -0.001337,
+            is_no_longer_baby: false,
+				was_se_fuer_ne_zelle_is: (actual_i as usize, actual_j as usize)
+        })
+			.id();
+
+		// Update the grid
+		plant_grid.grid[actual_i as usize][actual_j as usize] = Some(new_plant);
+		}
+	}
 }
 
 #[derive(Resource)]

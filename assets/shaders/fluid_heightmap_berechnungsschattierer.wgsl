@@ -22,7 +22,7 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 
     let location_for_noise = vec3<f32>(f32(invocation_id.x) * 0.0052, f32(invocation_id.y) * 0.0052, 1.0);
     let noise = simplex_noise_3d(location_for_noise);
-    var height = noise * 2.0;
+    var height = noise * 1.0 - 0.777;
     if (location.y < 100) {
         height = 0.0;
     }
@@ -106,8 +106,8 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let uv = vec2(f32(location.x) / f32(dim.x), f32(location.y) / f32(dim.y));
     let v: vec2<f32> = attracking_point - uv;
     var attracting_force = 0.0;
-    if (uniforms.click == u32(1) && length(v) < 0.1) {
-        attracting_force = min(1000.0, 1.0/((abs(v.x * v.x * v.x) + abs(v.y * v.y * v.y)))) / 10000.0;
+    if (uniforms.click == u32(1) && length(v) < 0.04) {
+        attracting_force = min(20.0, 1.0/((abs(v.x * v.x * v.x) + abs(v.y * v.y * v.y)))) / 10000.0;
     }
 
     // Calculate the total height difference from neighbors
@@ -116,14 +116,17 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
                     + cell_flow(height0, terrain_height0, height2, terrain_height2)
                     + cell_flow(height0, terrain_height0, height3, terrain_height3)
                     + cell_flow(height0, terrain_height0, height4, terrain_height4) + attracting_force);
-
+	
     // Update velocity with damping
     let new_vel = get_vel(location, 0, 0) * damping + accel * dt;
 
     // Mass conservation: distribute the change in height back to neighbors
     let height_change = new_vel * dt;
-    let new_height = height0 + height_change;
-
+    var new_height = height0 + height_change;
+	if (terrain_height0 < 0.777) {
+		new_height -= 0.012;
+	}
+	new_height *= 0.99999;
     textureStore(velocity, location, vec4(new_vel, 0.0, 0.0, 1.0));
     textureStore(height_out, location, vec4(max(new_height, 0.0), 0.0, 0.0, 1.0));
 }
