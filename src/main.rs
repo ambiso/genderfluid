@@ -118,6 +118,7 @@ fn main() {
                 prepare_fluid_compute_uniforms,
                 spawn_plants,
                 update_camera_target,
+                update_plant_health,
             ),
         )
         .run();
@@ -196,6 +197,7 @@ fn spawn_plants(
                             .with_scale(Vec3::splat(0.02)),
                         ..Default::default()
                     })
+                    .insert(Plant::default())
                     .id();
 
                 // Update the grid
@@ -203,6 +205,33 @@ fn spawn_plants(
 
                 // Possibly break if you only want to spawn one plant per update
                 return;
+            }
+        }
+    }
+}
+
+fn update_plant_health(
+    time: Res<Time>,
+    mut plant_grid: ResMut<PlantGrid>,
+    mut plants: Query<(&mut Transform, &Plant)>,
+) {
+    let current_time = time.elapsed_seconds() as f32;
+
+    for i in 0..(SIZE / CELL_SIZE) {
+        for j in 0..(SIZE / CELL_SIZE) {
+            if let Some(plant) = plant_grid.grid[i as usize][j as usize] {
+                // Example logic to update health based on sin(time)
+                // plant.health = 50.0 * (current_time * PI).sin() + 50.0; // Range from 0 to 100
+
+                // Update scale based on health. This is just an example,
+                // you can define your own logic to map health to scale.
+                // let scale = 0.1 + (plant.health / 1000.0);
+                // transform.scale = Vec3::splat(scale);
+
+                if let Ok((mut transform, actual_plant)) = plants.get_mut(plant) {
+                    transform.scale = Vec3::splat(0.01 * (current_time * PI).sin() + 0.01);
+                }
+                println!("Updated plant size");
             }
         }
     }
