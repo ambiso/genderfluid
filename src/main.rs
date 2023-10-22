@@ -262,12 +262,14 @@ fn health_curve(x: f32, difficulty: f32) -> f32 {
 fn should_spawn_based_on_distance(
     existing_object_transform: &Transform,
     spawn_x: f32,
-    spawn_y: f32,
+    spawn_z: f32,
     max_radius: f32,
 ) -> bool {
     let existing_pos = existing_object_transform.translation;
-    let distance_vec = Vec2::new(spawn_x - existing_pos.x, spawn_y - existing_pos.y);
+    let distance_vec = Vec2::new(spawn_x - existing_pos.x, spawn_z - existing_pos.z);
     let distance = distance_vec.length();
+
+    println!("distance: {}", distance);
 
     if distance > max_radius {
         return false;
@@ -304,22 +306,22 @@ fn grow_plant_at(
             }
         }
     } else if plant_grid.grid[i as usize][j as usize].is_none() {
-        if should_spawn_based_on_distance(&ball_transform, i as f32, j as f32, 4.0) {
+        let mut rng = rand::thread_rng();
+
+        let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+        let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+
+        let world_x = (i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0) * 0.02;
+        let world_z = (j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0) * 0.02;
+
+        if should_spawn_based_on_distance(&ball_transform, world_x, world_z, 1.0337) {
             println!("Spawn the object!");
-
-            let mut rng = rand::thread_rng();
-
-            let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
-            let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
-
-            let world_x = i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0;
-            let world_z = j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0;
 
             // Spawn a new plant entity
             let new_plant = commands
                 .spawn(SceneBundle {
                     scene: plant_asset.0.clone(),
-                    transform: Transform::from_xyz(world_x * 0.02, 2.0, world_z * 0.02)
+                    transform: Transform::from_xyz(world_x, 2.0, world_z)
                         .with_scale(Vec3::splat(0.02)),
                     ..Default::default()
                 })
