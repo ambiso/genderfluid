@@ -275,7 +275,7 @@ fn should_spawn_based_on_distance(
     let distance_vec = Vec2::new(spawn_x - existing_pos.x, spawn_z - existing_pos.z);
     let distance = distance_vec.length();
 
-    println!("distance: {}", distance);
+    // println!("distance: {}", distance);
 
     if distance > max_radius {
         return false;
@@ -304,7 +304,7 @@ fn grow_plant_at(
         if let Ok((mut transform, mut actual_plant, mut visibility)) = plants.get_mut(plant) {
             transform.scale += 0.01 * dt;
             actual_plant.health = health_curve(transform.scale.max_element() * 100.0, 1.5);
-            println!("Health: {}", actual_plant.health);
+            // println!("Health: {}", actual_plant.health);
             if actual_plant.is_no_longer_baby && actual_plant.health <= 0.0 {
                 *visibility = Visibility::Hidden;
             } else if !actual_plant.is_no_longer_baby && actual_plant.health > 0.0 {
@@ -321,7 +321,7 @@ fn grow_plant_at(
         let world_z = (j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0) * 0.02;
 
         if should_spawn_based_on_distance(&ball_transform, world_x, world_z, 1.0337) {
-            println!("Spawn the object!");
+            // println!("Spawn the object!");
 
             // Spawn a new plant entity
             let new_plant = commands
@@ -485,7 +485,7 @@ fn setup(
 
     let extract_positions = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid extract positions"),
-        size: std::mem::size_of::<QueryPosition>() as u64,
+        size: std::mem::size_of::<QueryPosition>() as u64 * EXTRACT_BUFFER_SIZE as u64,
         usage: BufferUsages::STORAGE
             | BufferUsages::COPY_DST
             | BufferUsages::COPY_SRC
@@ -682,8 +682,8 @@ fn prepare_fluid_compute_uniforms(
         .chunks_exact(4)
         .map(|h| f32::from_ne_bytes(h.try_into().unwrap()))
         .collect();
-
-    player.single_mut().translation.y = height[0] + terrain_height[0];
+    let y_trans = player.single().translation.y;
+    player.single_mut().translation.y = (y_trans * 0.99 + (height[0] + terrain_height[0]))/2.0;
     for (i, mut plant) in plants.iter_mut().enumerate() {
         plant.translation.y = height[i+1] + terrain_height[i+1];
     }

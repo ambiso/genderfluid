@@ -91,9 +91,8 @@ pub enum ControlEvent {
     Orbit(Vec2),
     TranslateTarget(Vec2),
     Zoom(f32),
-	NewTarget(Vec3),
+    NewTarget(Vec3),
 }
-
 
 // #[macro_use]
 // mod macros {
@@ -139,7 +138,7 @@ pub fn default_input_map(
     }
 
     // if keyboard.pressed(KeyCode::ControlLeft) {
-        events.send(ControlEvent::Orbit(mouse_rotate_sensitivity * cursor_delta));
+    events.send(ControlEvent::Orbit(mouse_rotate_sensitivity * cursor_delta));
     // }
 
     // if mouse_buttons.pressed(MouseButton::Right) {
@@ -173,33 +172,34 @@ pub fn control_system(
             return;
         };
 
-    let mut look_angles = LookAngles::from_vector(-transform.look_direction().unwrap());
-    let mut radius_scalar = 1.0;
-    let radius = transform.radius();
+    if let Some(look_dir) = transform.look_direction() {
+        let mut look_angles = LookAngles::from_vector(-look_dir);
+        let mut radius_scalar = 1.0;
+        let radius = transform.radius();
 
-    let dt = time.delta_seconds();
-    for event in events.iter() {
-        match event {
-            ControlEvent::Orbit(delta) => {
-                look_angles.add_yaw(dt * -delta.x);
-                look_angles.add_pitch(dt * delta.y);
+        let dt = time.delta_seconds();
+        for event in events.iter() {
+            match event {
+                ControlEvent::Orbit(delta) => {
+                    look_angles.add_yaw(dt * -delta.x);
+                    look_angles.add_pitch(dt * delta.y);
+                }
+                ControlEvent::TranslateTarget(delta) => {
+                    let right_dir = scene_transform.rotation * -Vec3::X;
+                    let up_dir = scene_transform.rotation * Vec3::Y;
+                    transform.target += dt * delta.x * right_dir + dt * delta.y * up_dir;
+                }
+                ControlEvent::Zoom(scalar) => {
+                    radius_scalar *= scalar;
+                }
+                ControlEvent::NewTarget(target) => {
+                    transform.target = *target;
+                }
             }
-            ControlEvent::TranslateTarget(delta) => {
-                let right_dir = scene_transform.rotation * -Vec3::X;
-                let up_dir = scene_transform.rotation * Vec3::Y;
-                transform.target += dt * delta.x * right_dir + dt * delta.y * up_dir;
-            }
-            ControlEvent::Zoom(scalar) => {
-                radius_scalar *= scalar;
-            }
-            ControlEvent::NewTarget(target) => {
-				transform.target = *target;
-			},
         }
+        look_angles.assert_not_looking_up();
+
+        let new_radius = (radius_scalar * radius).min(1000000.0).max(0.001);
+        transform.eye = transform.target + new_radius * look_angles.unit_vector();
     }
-
-    look_angles.assert_not_looking_up();
-
-    let new_radius = (radius_scalar * radius).min(1000000.0).max(0.001);
-    transform.eye = transform.target + new_radius * look_angles.unit_vector();
 }
