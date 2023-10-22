@@ -24,7 +24,7 @@ use bevy::{
 use bevy_shader_utils::ShaderUtilsPlugin;
 use orbit_camera::{ControlEvent, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin};
 use smooth_bevy_cameras::LookTransformPlugin;
-use std::borrow::Cow;
+use std::{borrow::Cow, f32::consts::PI};
 use water_pbr_material::WaterStandardMaterial;
 
 const SIZE: u32 = 256;
@@ -328,7 +328,7 @@ impl Plugin for GenderfluidComputePlugin {
 }
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 fn prepare_fluid_compute_uniforms(
     btn: Res<Input<MouseButton>>,
@@ -569,6 +569,8 @@ pub fn sphere_input_map(
     mut events: EventWriter<SphereControlEvent>,
     keyboard: Res<Input<KeyCode>>,
     controllers: Query<&SphereController>,
+    player: Query<&Transform, With<Player>>,
+    camera: Query<&Transform, With<OrbitCameraController>>,
 ) {
     // Can only control one sphere at a time.
     let controller = if let Some(controller) = controllers.iter().find(|c| c.enabled) {
@@ -582,11 +584,17 @@ pub fn sphere_input_map(
         ..
     } = *controller;
 
+    let mut view_direction = player.single().translation - camera.single().translation;
+    view_direction.y = 0.0;
+    view_direction = view_direction.normalize();
+
+    let left = Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, 0.0, PI/2.0, 0.0)) * view_direction;
+
     for (key, dir) in [
-        (KeyCode::W, Vec3::Z),
-        (KeyCode::A, -Vec3::X),
-        (KeyCode::S, -Vec3::Z),
-        (KeyCode::D, Vec3::X),
+        (KeyCode::W, view_direction),
+        (KeyCode::A, left),
+        (KeyCode::S, -view_direction),
+        (KeyCode::D, -left),
     ]
     .iter()
     .cloned()
