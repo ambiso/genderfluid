@@ -7,6 +7,7 @@ mod water_pbr_material;
 
 use bevy::{
     core::{Pod, Zeroable},
+    gltf::Gltf,
     prelude::*,
     reflect::TypeUuid,
     render::{
@@ -52,6 +53,26 @@ impl Movable {
 }
 
 #[derive(Default, Component)]
+pub struct Plant {
+    pub health: f32,
+}
+#[derive(Resource)]
+pub struct PlantGrid {
+    pub grid: Vec<Vec<Option<Entity>>>,
+}
+
+#[derive(Resource)]
+struct PlantAsset(Handle<Scene>);
+
+impl Default for PlantGrid {
+    fn default() -> Self {
+        Self {
+            grid: vec![vec![None; SIZE as usize / 4]; SIZE as usize / 4],
+        }
+    }
+}
+
+#[derive(Default, Component)]
 pub struct SphereController {
     pub enabled: bool,
     pub translate_sensitivity: f32,
@@ -84,6 +105,7 @@ fn main() {
             MaterialPlugin::<WaterStandardMaterial>::default(),
         ))
         .add_event::<SphereControlEvent>()
+        .insert_resource(PlantGrid::default())
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -92,6 +114,7 @@ fn main() {
                 move_sphere,
                 cursor_grab_system,
                 prepare_fluid_compute_uniforms,
+                spawn_plants,
             ),
         )
         .run();
@@ -126,6 +149,46 @@ struct FluidComputeUniforms {
     _padding: u32,
 }
 
+fn spawn_plants(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut plant_grid: ResMut<PlantGrid>,
+    plant_asset: Res<PlantAsset>,
+) {
+    // Some condition to control when to spawn a new plant, e.g., every second
+    static mut LAST_SPAWN_TIME: f64 = 0.0;
+    let current_time = time.elapsed_seconds_f64();
+    if current_time - unsafe { LAST_SPAWN_TIME } < 1.0 {
+        return;
+    }
+    unsafe {
+        LAST_SPAWN_TIME = current_time;
+    }
+
+    // Loop through the grid to find an empty spot to place a new plant
+    for i in 0..(SIZE / 4) {
+        for j in 0..(SIZE / 4) {
+            if plant_grid.grid[i as usize][j as usize].is_none() {
+                // Spawn a new plant entity
+                let new_plant = commands
+                    .spawn(SceneBundle {
+                        scene: plant_asset.0.clone(),
+                        transform: Transform::from_xyz(i as f32, 2.0, j as f32)
+                            .with_scale(Vec3::splat(0.1)),
+                        ..Default::default()
+                    })
+                    .id();
+
+                // Update the grid
+                plant_grid.grid[i as usize][j as usize] = Some(new_plant);
+
+                // Possibly break if you only want to spawn one plant per update
+                return;
+            }
+        }
+    }
+}
+
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
@@ -141,13 +204,16 @@ fn setup(
     let controllllller = FpsCameraController::default();
 
     let plant = asset_server.load("glowingflower2.glb#Scene0");
+    commands.insert_resource(PlantAsset(plant));
     // to position our 3d model, simply use the Transform
     // in the SceneBundle
-    commands.spawn(SceneBundle {
-        scene: plant,
-        transform: Transform::from_xyz(0.0, 2.0, -5.0).with_scale(Vec3::splat(0.1)),
-        ..Default::default()
-    });
+    // commands
+    //     .spawn(SceneBundle {
+    //         scene: plant,
+    //         transform: Transform::from_xyz(0.0, 2.0, -5.0).with_scale(Vec3::splat(0.1)),
+    //         ..Default::default()
+    //     })
+    //     .insert(Plant::default());
 
     commands
         .spawn(Camera3dBundle::default())
