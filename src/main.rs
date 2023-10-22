@@ -109,7 +109,7 @@ fn cursor_grab_system(
 }
 
 #[derive(
-    Resource, AsBindGroup, Reflect, Debug, Clone, TypeUuid, ShaderType, Pod, Zeroable, Copy,
+    Resource, Reflect, Debug, Clone, TypeUuid, ShaderType, Pod, Zeroable, Copy,
 )]
 #[repr(C)]
 #[uuid = "61e3fe7d-e307-4d7f-a060-35fff2cba963"]
