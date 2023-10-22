@@ -23,7 +23,9 @@ use bevy::{
     window::WindowPlugin,
 };
 use bevy_shader_utils::ShaderUtilsPlugin;
-use extract_heights::{GenderfluidImage, GenderfluidExtractNode, GenderfluidExtractPipeline, QueryPosition};
+use extract_heights::{
+    GenderfluidExtractNode, GenderfluidExtractPipeline, GenderfluidImage, QueryPosition,
+};
 use orbit_camera::{ControlEvent, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin};
 use smooth_bevy_cameras::LookTransformPlugin;
 use std::{borrow::Cow, f32::consts::PI};
@@ -233,7 +235,7 @@ fn update_plant_health(
                 if let Ok((mut transform, actual_plant)) = plants.get_mut(plant) {
                     transform.scale = Vec3::splat(0.01 * (current_time * PI).sin() + 0.01);
                 }
-                println!("Updated plant size");
+                // println!("Updated plant size");
             }
         }
     }
@@ -403,8 +405,6 @@ fn setup(
         mapped_at_creation: false,
     });
 
-
-
     commands.insert_resource(GenderfluidImage {
         height1,
         height2,
@@ -450,13 +450,19 @@ impl Plugin for GenderfluidComputePlugin {
         app.add_plugins(ExtractResourcePlugin::<GenderfluidImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
-        render_app.add_systems(Render, extract_heights::queue_extract_bind_group.in_set(RenderSet::Queue));
+        render_app.add_systems(
+            Render,
+            extract_heights::queue_extract_bind_group.in_set(RenderSet::Queue),
+        );
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("genderfluid", GenderfluidNode::default());
         render_graph.add_node("genderfluid extract", GenderfluidExtractNode::default());
         render_graph.add_node_edge("genderfluid", bevy::render::main_graph::node::CAMERA_DRIVER);
-        render_graph.add_node_edge("genderfluid extract", bevy::render::main_graph::node::CAMERA_DRIVER);
+        render_graph.add_node_edge(
+            "genderfluid extract",
+            bevy::render::main_graph::node::CAMERA_DRIVER,
+        );
     }
 
     fn finish(&self, app: &mut App) {
