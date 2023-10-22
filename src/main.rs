@@ -15,7 +15,8 @@ use bevy::{
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        Render, RenderApp, RenderSet, view::NoFrustumCulling,
+        view::NoFrustumCulling,
+        Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,
 };
@@ -132,11 +133,21 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut custom_materials: ResMut<Assets<WaterStandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
     let eye = Vec3::new(-2.0, 5.0, 5.1);
     let target = Vec3::default();
     let controllllller = FpsCameraController::default();
+
+    let plant = asset_server.load("glowingflower2.glb#Scene0");
+    // to position our 3d model, simply use the Transform
+    // in the SceneBundle
+    commands.spawn(SceneBundle {
+        scene: plant,
+        transform: Transform::from_xyz(0.0, 2.0, -5.0).with_scale(Vec3::splat(0.1)),
+        ..Default::default()
+    });
 
     commands
         .spawn(Camera3dBundle::default())
@@ -210,17 +221,19 @@ fn setup(
         ..Default::default()
     });
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(
-            shape::Plane {
-                size: 5.0,
-                subdivisions: SIZE,
-            }
-            .into(),
-        ),
-        material: material_handle,
-        ..default()
-    }).insert(NoFrustumCulling);
+    commands
+        .spawn(MaterialMeshBundle {
+            mesh: meshes.add(
+                shape::Plane {
+                    size: 5.0,
+                    subdivisions: SIZE,
+                }
+                .into(),
+            ),
+            material: material_handle,
+            ..default()
+        })
+        .insert(NoFrustumCulling);
 
     let terrain_material_handle = custom_materials.add(WaterStandardMaterial {
         height: Some(terrain_height.clone()),
@@ -232,17 +245,19 @@ fn setup(
         ..Default::default()
     });
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(
-            shape::Plane {
-                size: 5.0,
-                subdivisions: SIZE,
-            }
-            .into(),
-        ),
-        material: terrain_material_handle,
-        ..default()
-    }).insert(NoFrustumCulling);
+    commands
+        .spawn(MaterialMeshBundle {
+            mesh: meshes.add(
+                shape::Plane {
+                    size: 5.0,
+                    subdivisions: SIZE,
+                }
+                .into(),
+            ),
+            material: terrain_material_handle,
+            ..default()
+        })
+        .insert(NoFrustumCulling);
 
     let water_compute_uniforms_buffer = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid compute uniforms"),
