@@ -27,6 +27,7 @@ use extract_heights::{
     GenderfluidExtractNode, GenderfluidExtractPipeline, GenderfluidImage, QueryPosition,
 };
 use orbit_camera::{ControlEvent, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin};
+use rand::Rng;
 use smooth_bevy_cameras::LookTransformPlugin;
 use std::{borrow::Cow, f32::consts::PI};
 use water_pbr_material::WaterStandardMaterial;
@@ -55,9 +56,19 @@ impl Movable {
     }
 }
 
-#[derive(Default, Component)]
+#[derive(Component)]
 pub struct Plant {
     pub health: f32,
+    pub is_no_longer_baby: bool,
+}
+
+impl Default for Plant {
+    fn default() -> Self {
+        Self {
+            health: -1.0,
+            is_no_longer_baby: false,
+        }
+    }
 }
 #[derive(Resource)]
 pub struct PlantGrid {
@@ -120,7 +131,7 @@ fn main() {
                 move_sphere,
                 cursor_grab_system,
                 prepare_fluid_compute_uniforms,
-                spawn_plants,
+                // spawn_plants,
                 update_camera_target,
                 update_plant_health,
             ),
@@ -164,80 +175,159 @@ struct FluidComputeUniforms {
     _padding: u32,
 }
 
-fn spawn_plants(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut plant_grid: ResMut<PlantGrid>,
-    plant_asset: Res<PlantAsset>,
-) {
-    // Some condition to control when to spawn a new plant, e.g., every second
-    static mut LAST_SPAWN_TIME: f64 = 0.0;
-    let current_time = time.elapsed_seconds_f64();
-    if current_time - unsafe { LAST_SPAWN_TIME } < 0.015 {
-        return;
-    }
-    unsafe {
-        LAST_SPAWN_TIME = current_time;
-    }
+// fn spawn_plants(
+//     mut commands: Commands,
+//     time: Res<Time>,
+//     mut plant_grid: ResMut<PlantGrid>,
+//     plant_asset: Res<PlantAsset>,
+// ) {
+//     // Some condition to control when to spawn a new plant, e.g., every second
+//     static mut LAST_SPAWN_TIME: f64 = 0.0;
+//     let current_time = time.elapsed_seconds_f64();
+//     if current_time - unsafe { LAST_SPAWN_TIME } < 0.015 {
+//         return;
+//     }
+//     unsafe {
+//         LAST_SPAWN_TIME = current_time;
+//     }
 
-    let mut rng = rand::thread_rng();
-    use rand::Rng;
+//     let mut rng = rand::thread_rng();
+//     use rand::Rng;
 
-    // Loop through the grid to find an empty spot to place a new plant
-    for i in 0..(SIZE / CELL_SIZE) {
-        for j in 0..(SIZE / CELL_SIZE) {
-            if plant_grid.grid[i as usize][j as usize].is_none() {
-                let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
-                let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+//     // Loop through the grid to find an empty spot to place a new plant
+//     for i in 0..(SIZE / CELL_SIZE) {
+//         for j in 0..(SIZE / CELL_SIZE) {
+//             if plant_grid.grid[i as usize][j as usize].is_none() {
+//                 let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+//                 let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
 
-                let world_x = i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0;
-                let world_z = j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0;
+//                 let world_x = i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0;
+//                 let world_z = j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0;
 
-                // Spawn a new plant entity
-                let new_plant = commands
-                    .spawn(SceneBundle {
-                        scene: plant_asset.0.clone(),
-                        transform: Transform::from_xyz(world_x * 0.02, 2.0, world_z * 0.02)
-                            .with_scale(Vec3::splat(0.02)),
-                        ..Default::default()
-                    })
-                    .insert(Plant::default())
-                    .id();
+//                 // Spawn a new plant entity
+//                 let new_plant = commands
+//                     .spawn(SceneBundle {
+//                         scene: plant_asset.0.clone(),
+//                         transform: Transform::from_xyz(world_x * 0.02, 2.0, world_z * 0.02)
+//                             .with_scale(Vec3::splat(0.02)),
+//                         ..Default::default()
+//                     })
+//                     .insert(Plant::default())
+//                     .id();
 
-                // Update the grid
-                plant_grid.grid[i as usize][j as usize] = Some(new_plant);
+//                 // Update the grid
+//                 plant_grid.grid[i as usize][j as usize] = Some(new_plant);
 
-                // Possibly break if you only want to spawn one plant per update
-                return;
-            }
-        }
-    }
-}
+//                 // Possibly break if you only want to spawn one plant per update
+//                 return;
+//             }
+//         }
+//     }
+// }
 
 fn update_plant_health(
     time: Res<Time>,
     mut plant_grid: ResMut<PlantGrid>,
-    mut plants: Query<(&mut Transform, &mut Plant)>,
+    mut plants: Query<(&mut Transform, &mut Plant, &mut Visibility)>,
+    mut commands: Commands,
+    plant_asset: Res<PlantAsset>,
+    spheres: Query<&Transform, (With<SphereController>, Without<Plant>)>,
 ) {
+    let ball_transform = spheres.single();
+
     let current_time = time.elapsed_seconds() as f32;
+    let dt = time.delta_seconds() as f32;
 
     for i in 0..(SIZE / CELL_SIZE) {
         for j in 0..(SIZE / CELL_SIZE) {
-            if let Some(plant) = plant_grid.grid[i as usize][j as usize] {
-                // Example logic to update health based on sin(time)
-                // plant.health = 50.0 * (current_time * PI).sin() + 50.0; // Range from 0 to 100
+            grow_plant_at(
+                i,
+                j,
+                dt,
+                ball_transform,
+                &mut plant_grid,
+                &mut plants,
+                &mut commands,
+                &plant_asset,
+            )
+        }
+    }
+}
 
-                // Update scale based on health. This is just an example,
-                // you can define your own logic to map health to scale.
-                // let scale = 0.1 + (plant.health / 1000.0);
-                // transform.scale = Vec3::splat(scale);
+fn health_curve(x: f32, difficulty: f32) -> f32 {
+    let health_peak_marker = 3.0;
+    1.0 / (1.0 + (x - health_peak_marker).powf(2.0)).powf(difficulty) - 0.1
+}
 
-                if let Ok((mut transform, mut actual_plant)) = plants.get_mut(plant) {
-                    actual_plant.health = 5.0;
-                    transform.scale = Vec3::splat(0.01 * (current_time * PI).sin() + 0.01);
-                }
-                // println!("Updated plant size");
+fn should_spawn_based_on_distance(
+    existing_object_transform: &Transform,
+    spawn_x: f32,
+    spawn_y: f32,
+    max_radius: f32,
+) -> bool {
+    let existing_pos = existing_object_transform.translation;
+    let distance_vec = Vec2::new(spawn_x - existing_pos.x, spawn_y - existing_pos.y);
+    let distance = distance_vec.length();
+
+    if distance > max_radius {
+        return false;
+    }
+
+    let mut rng = rand::thread_rng();
+    let random_val: f32 = rng.gen(); // Generates a float between 0.0 and 1.0
+
+    // Make it more likely to spawn the closer it is to the existing object
+    let probability = 1.0 - (distance / max_radius);
+
+    random_val < probability
+}
+
+fn grow_plant_at(
+    i: u32,
+    j: u32,
+    dt: f32,
+    ball_transform: &Transform,
+    plant_grid: &mut ResMut<PlantGrid>,
+    plants: &mut Query<(&mut Transform, &mut Plant, &mut Visibility)>,
+    commands: &mut Commands,
+    plant_asset: &PlantAsset,
+) {
+    if let Some(plant) = plant_grid.grid[i as usize][j as usize] {
+        if let Ok((mut transform, mut actual_plant, mut visibility)) = plants.get_mut(plant) {
+            transform.scale += 0.01 * dt;
+            actual_plant.health = health_curve(transform.scale.max_element() * 100.0, 1.5);
+            println!("Health: {}", actual_plant.health);
+            if actual_plant.is_no_longer_baby && actual_plant.health <= 0.0 {
+                *visibility = Visibility::Hidden;
+            } else if !actual_plant.is_no_longer_baby && actual_plant.health > 0.0 {
+                actual_plant.is_no_longer_baby = true;
             }
+        }
+    } else if plant_grid.grid[i as usize][j as usize].is_none() {
+        if should_spawn_based_on_distance(&ball_transform, i as f32, j as f32, 4.0) {
+            println!("Spawn the object!");
+
+            let mut rng = rand::thread_rng();
+
+            let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+            let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+
+            let world_x = i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0;
+            let world_z = j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0;
+
+            // Spawn a new plant entity
+            let new_plant = commands
+                .spawn(SceneBundle {
+                    scene: plant_asset.0.clone(),
+                    transform: Transform::from_xyz(world_x * 0.02, 2.0, world_z * 0.02)
+                        .with_scale(Vec3::splat(0.02)),
+                    ..Default::default()
+                })
+                .insert(Plant::default())
+                .id();
+
+            // Update the grid
+            plant_grid.grid[i as usize][j as usize] = Some(new_plant);
         }
     }
 }
