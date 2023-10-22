@@ -5,7 +5,6 @@
 
 mod orbit_camera;
 mod water_pbr_material;
-
 use bevy::{
     core::{Pod, Zeroable},
     gltf::Gltf,
@@ -30,6 +29,7 @@ use water_pbr_material::WaterStandardMaterial;
 
 const SIZE: u32 = 256;
 const WORKGROUP_SIZE: u32 = 8;
+const CELL_SIZE: u32 = 32;
 
 // Define a struct to keep some information about our entity.
 // Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.
@@ -66,7 +66,10 @@ struct PlantAsset(Handle<Scene>);
 impl Default for PlantGrid {
     fn default() -> Self {
         Self {
-            grid: vec![vec![None; SIZE as usize / 4]; SIZE as usize / 4],
+            grid: vec![
+                vec![None; SIZE as usize / CELL_SIZE as usize];
+                SIZE as usize / CELL_SIZE as usize
+            ],
         }
     }
 }
@@ -165,23 +168,32 @@ fn spawn_plants(
     // Some condition to control when to spawn a new plant, e.g., every second
     static mut LAST_SPAWN_TIME: f64 = 0.0;
     let current_time = time.elapsed_seconds_f64();
-    if current_time - unsafe { LAST_SPAWN_TIME } < 1.0 {
+    if current_time - unsafe { LAST_SPAWN_TIME } < 0.015 {
         return;
     }
     unsafe {
         LAST_SPAWN_TIME = current_time;
     }
 
+    let mut rng = rand::thread_rng();
+    use rand::Rng;
+
     // Loop through the grid to find an empty spot to place a new plant
-    for i in 0..(SIZE / 4) {
-        for j in 0..(SIZE / 4) {
+    for i in 0..(SIZE / CELL_SIZE) {
+        for j in 0..(SIZE / CELL_SIZE) {
             if plant_grid.grid[i as usize][j as usize].is_none() {
+                let offset_x: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+                let offset_z: f32 = rng.gen_range(0.0..=CELL_SIZE as f32);
+
+                let world_x = i as f32 * CELL_SIZE as f32 + offset_x - SIZE as f32 / 2.0;
+                let world_z = j as f32 * CELL_SIZE as f32 + offset_z - SIZE as f32 / 2.0;
+
                 // Spawn a new plant entity
                 let new_plant = commands
                     .spawn(SceneBundle {
                         scene: plant_asset.0.clone(),
-                        transform: Transform::from_xyz(i as f32, 2.0, j as f32)
-                            .with_scale(Vec3::splat(0.1)),
+                        transform: Transform::from_xyz(world_x * 0.02, 2.0, world_z * 0.02)
+                            .with_scale(Vec3::splat(0.02)),
                         ..Default::default()
                     })
                     .id();
