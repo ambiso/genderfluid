@@ -6,7 +6,9 @@
 mod water_pbr_material;
 
 use bevy::{
+    core::{Pod, Zeroable},
     prelude::*,
+    reflect::TypeUuid,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
@@ -106,6 +108,16 @@ fn cursor_grab_system(
     }
 }
 
+#[derive(
+    Resource, AsBindGroup, Reflect, Debug, Clone, TypeUuid, ShaderType, Pod, Zeroable, Copy,
+)]
+#[repr(C)]
+#[uuid = "61e3fe7d-e307-4d7f-a060-35fff2cba963"]
+struct FluidComputeUniforms {
+    player_position: Vec2,
+    click: u32,
+}
+
 /// set up a simple 3D scene
 fn setup(
     mut commands: Commands,
@@ -113,6 +125,7 @@ fn setup(
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
     mut custom_materials: ResMut<Assets<WaterStandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    render_device: Res<RenderDevice>,
 ) {
     let eye = Vec3::new(-2.0, 5.0, 5.1);
     let target = Vec3::default();
@@ -223,11 +236,19 @@ fn setup(
         ..default()
     });
 
+    let water_compute_uniforms_buffer = render_device.create_buffer(&BufferDescriptor {
+        label: Some("fluid compute uniforms"),
+        size: std::mem::size_of::<FluidComputeUniforms>() as u64,
+        usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+
     commands.insert_resource(GenderfluidImage {
         height1,
         height2,
         velocity,
         terrain_height,
+        uniforms: water_compute_uniforms_buffer,
     });
 }
 
@@ -282,6 +303,7 @@ struct GenderfluidImage {
     height2: Handle<Image>,
     velocity: Handle<Image>,
     terrain_height: Handle<Image>,
+    uniforms: Buffer,
 }
 
 #[derive(Resource)]
@@ -322,6 +344,10 @@ fn queue_bind_group(
                 binding: 3,
                 resource: BindingResource::TextureView(&terrain_height.texture_view),
             },
+            BindGroupEntry {
+                binding: 4,
+                resource: genderfluid_image.uniforms.as_entire_binding(),
+            },
         ],
     });
     commands.insert_resource(GenderfluidImageBindGroup(bind_group));
@@ -356,6 +382,20 @@ impl FromWorld for GenderfluidPipeline {
                         make_binding(1, StorageTextureAccess::WriteOnly),
                         make_binding(2, StorageTextureAccess::ReadWrite),
                         make_binding(3, StorageTextureAccess::ReadWrite),
+                        BindGroupLayoutEntry {
+                            binding: 4,
+                            visibility: ShaderStages::COMPUTE,
+                            ty: BindingType::Buffer {
+                                ty: BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: BufferSize::new(std::mem::size_of::<
+                                    FluidComputeUniforms,
+                                >(
+                                )
+                                    as u64),
+                            },
+                            count: None,
+                        },
                     ],
                 });
         let shader = world

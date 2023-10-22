@@ -1,5 +1,10 @@
 #import bevy_shader_utils::simplex_noise_3d simplex_noise_3d
 
+struct unsereigenerty {
+    player_position: vec2<f32>,
+    click: u32,
+}
+
 @group(0) @binding(0)
 var height_in: texture_storage_2d<r32float, read>;
 @group(0) @binding(1)
@@ -8,6 +13,8 @@ var height_out: texture_storage_2d<r32float, write>;
 var velocity: texture_storage_2d<r32float, read_write>;
 @group(0) @binding(3)
 var terrain_height_in: texture_storage_2d<r32float, read_write>;
+@group(0) @binding(4)
+var<uniform> uniforms : unsereigenerty;
 
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {

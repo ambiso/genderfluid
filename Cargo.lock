@@ -1581,6 +1581,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_shader_utils",
+ "bytemuck",
  "smooth-bevy-cameras",
 ]
 
