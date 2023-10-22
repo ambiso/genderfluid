@@ -29,12 +29,16 @@ use extract_heights::{
 use orbit_camera::{ControlEvent, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin};
 use rand::Rng;
 use smooth_bevy_cameras::LookTransformPlugin;
-use std::{borrow::Cow, f32::consts::PI};
+use std::{
+    borrow::Cow, char::from_u32_unchecked, f32::consts::PI, mem::size_of, ops::Deref, sync::Arc,
+};
 use water_pbr_material::WaterStandardMaterial;
+use wgpu::Maintain;
 
 const SIZE: u32 = 256;
 const WORKGROUP_SIZE: u32 = 8;
 const CELL_SIZE: u32 = 32;
+const EXTRACT_BUFFER_SIZE: u32 = (SIZE / CELL_SIZE).pow(2) + 1;
 
 // Define a struct to keep some information about our entity.
 // Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.
@@ -130,11 +134,13 @@ fn main() {
                 sphere_input_map,
                 move_sphere,
                 cursor_grab_system,
-                prepare_fluid_compute_uniforms,
-                // spawn_plants,
                 update_camera_target,
                 update_plant_health,
             ),
+        )
+        .add_systems(
+            PostUpdate,
+            (unmap_fluid_buffers, prepare_fluid_compute_uniforms).chain(),
         )
         .run();
 }
@@ -480,22 +486,46 @@ fn setup(
     let extract_positions = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid extract positions"),
         size: std::mem::size_of::<QueryPosition>() as u64,
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_WRITE,
+        usage: BufferUsages::STORAGE
+            | BufferUsages::COPY_DST
+            | BufferUsages::COPY_SRC
+            | BufferUsages::MAP_WRITE,
         mapped_at_creation: false,
     });
 
     let extract_height = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid extract height"),
-        size: std::mem::size_of::<f32>() as u64,
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        size: std::mem::size_of::<f32>() as u64 * EXTRACT_BUFFER_SIZE as u64,
+        usage: BufferUsages::STORAGE
+            | BufferUsages::COPY_DST
+            | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
     });
 
     let extract_terrain_height = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid extract terrain height"),
-        size: std::mem::size_of::<f32>() as u64,
-        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        size: std::mem::size_of::<f32>() as u64 * EXTRACT_BUFFER_SIZE as u64,
+        usage: BufferUsages::STORAGE
+            | BufferUsages::COPY_DST
+            | BufferUsages::COPY_SRC,
         mapped_at_creation: false,
+    });
+
+    let extract_height_mapped = render_device.create_buffer(&BufferDescriptor {
+        label: Some("fluid extract height"),
+        size: std::mem::size_of::<f32>() as u64 * EXTRACT_BUFFER_SIZE as u64,
+        usage: BufferUsages::STORAGE
+            | BufferUsages::COPY_DST
+            | BufferUsages::MAP_READ
+            | BufferUsages::COPY_SRC,
+        mapped_at_creation: true,
+    });
+
+    let extract_terrain_height_mapped = render_device.create_buffer(&BufferDescriptor {
+        label: Some("fluid extract terrain height"),
+        size: std::mem::size_of::<f32>() as u64 * EXTRACT_BUFFER_SIZE as u64,
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: true,
     });
 
     commands.insert_resource(GenderfluidImage {
@@ -507,7 +537,14 @@ fn setup(
         extract_positions,
         extract_height,
         extract_terrain_height,
+        extract_height_mapped,
+        extract_terrain_height_mapped,
     });
+}
+
+fn unmap_fluid_buffers(gfi: Res<GenderfluidImage>) {
+    gfi.extract_height_mapped.unmap();
+    gfi.extract_terrain_height_mapped.unmap();
 }
 
 // This system will move all Movable entities with a Transform
@@ -571,9 +608,10 @@ pub struct Player;
 fn prepare_fluid_compute_uniforms(
     btn: Res<Input<MouseButton>>,
     render_queue: Res<RenderQueue>,
+    render_device: Res<RenderDevice>,
     genderfluidimage: ResMut<GenderfluidImage>,
-    player: Query<&Transform, With<Player>>,
-    // plants: Query<&Transform, With<Plant>>,
+    mut player: Query<&mut Transform, (With<Player>, Without<Plant>)>,
+    mut plants: Query<&mut Transform, (With<Plant>, Without<Player>)>,
 ) {
     // write `time.seconds_since_startup` as a `&[u8]`
     // into the time buffer at offset 0.
@@ -589,11 +627,66 @@ fn prepare_fluid_compute_uniforms(
             _padding: 0,
         }),
     );
-    // render_queue.write_buffer(
-    //     &genderfluidimage.uniforms,
-    //     0,
-    //     bevy::core::cast_slice(&),
-    // );
+    let mut query_positions = vec![];
+    let map_translation = |translation: Vec3| QueryPosition {
+        x: ((translation.x / 5.0 + 0.5) * SIZE as f32) as i32,
+        y: ((translation.z / 5.0 + 0.5) * SIZE as f32) as i32,
+    };
+    query_positions.push(map_translation(player.single().translation));
+    for plant in plants.into_iter() {
+        query_positions.push(map_translation(plant.translation));
+    }
+    render_queue.write_buffer(
+        &genderfluidimage.extract_positions,
+        0,
+        bevy::core::cast_slice(&query_positions),
+    );
+
+    let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
+        label: Some("extract heights copy back"),
+    });
+    command_encoder.copy_buffer_to_buffer(
+        &genderfluidimage.extract_height,
+        0,
+        &genderfluidimage.extract_height_mapped,
+        0,
+        ((SIZE / CELL_SIZE).pow(2) as usize * size_of::<f32>()) as u64,
+    );
+    command_encoder.copy_buffer_to_buffer(
+        &genderfluidimage.extract_terrain_height,
+        0,
+        &genderfluidimage.extract_terrain_height_mapped,
+        0,
+        ((SIZE / CELL_SIZE).pow(2) as usize * size_of::<f32>()) as u64,
+    );
+    render_queue.submit(vec![command_encoder.finish()].into_iter());
+
+    let height_slice = genderfluidimage.extract_height_mapped.slice(..);
+    height_slice.map_async(MapMode::Read, |_| {});
+    let terrain_height_slice = genderfluidimage.extract_terrain_height_mapped.slice(..);
+    terrain_height_slice.map_async(MapMode::Read, |_| {});
+
+    // Poll the device in a blocking manner so that our future resolves.
+    // In an actual application, `device.poll(...)` should
+    // be called in an event loop or on another thread.
+    render_device.poll(Maintain::Wait);
+
+    let height: Vec<_> = height_slice
+        .get_mapped_range()
+        .chunks_exact(4)
+        .map(|h| f32::from_ne_bytes(h.try_into().unwrap()))
+        .collect();
+
+    let terrain_height: Vec<_> = terrain_height_slice
+        .get_mapped_range()
+        .chunks_exact(4)
+        .map(|h| f32::from_ne_bytes(h.try_into().unwrap()))
+        .collect();
+
+    player.single_mut().translation.y = height[0] + terrain_height[0];
+    for (i, mut plant) in plants.iter_mut().enumerate() {
+        plant.translation.y = height[i+1] + terrain_height[i+1];
+    }
 }
 
 #[derive(Resource)]

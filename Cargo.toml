@@ -12,6 +12,8 @@ bevy_shader_utils = "0.5.2"
 bytemuck = "1.14.0"
 rand_core = "0.6"
 rand = "0.8.5"
+wgpu = "0.16.1"
+wgpu-types = "0.16.1"
 
 [workspace]
 resolver = "2" # Important! wgpu/Bevy needs this!

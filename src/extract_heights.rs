@@ -12,7 +12,7 @@ use bevy::{
 use bytemuck::{Pod, Zeroable};
 use std::{borrow::Cow, num::NonZeroU32};
 
-use crate::{SIZE, WORKGROUP_SIZE};
+use crate::{SIZE, WORKGROUP_SIZE, CELL_SIZE};
 
 #[derive(Resource, Clone, ExtractResource)]
 pub struct GenderfluidImage {
@@ -23,7 +23,9 @@ pub struct GenderfluidImage {
     pub uniforms: Buffer,
 	pub extract_positions: Buffer,
 	pub extract_height: Buffer,
+	pub extract_height_mapped: Buffer,
 	pub extract_terrain_height: Buffer,
+	pub extract_terrain_height_mapped: Buffer,
 }
 
 #[derive(Resource)]
@@ -92,8 +94,8 @@ pub struct GenderfluidExtractPipeline {
 #[repr(C)]
 #[uuid = "657741ad-e8f8-43dc-bf2b-9b79c43e38e9"]
 pub struct QueryPosition {
-    pub x: u32,
-	pub y: u32,
+    pub x: i32,
+	pub y: i32,
 }
 
 impl FromWorld for GenderfluidExtractPipeline {
@@ -116,7 +118,7 @@ impl FromWorld for GenderfluidExtractPipeline {
                 has_dynamic_offset: false,
                 min_binding_size: BufferSize::new(size as u64),
             },
-            count: Some(NonZeroU32::new((SIZE / 4) * (SIZE / 4)).unwrap()),
+            count: Some(NonZeroU32::new((SIZE / CELL_SIZE) * (SIZE / CELL_SIZE)).unwrap()),
         };
         let texture_bind_group_layout =
             world
