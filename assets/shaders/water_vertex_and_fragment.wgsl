@@ -217,7 +217,7 @@ fn fragment(
     if (is_water == u32(1)) {
         let dim = textureDimensions(height_map_texture);
 	    let height_offset: f32 = textureSample(height_map_texture, height_map_sampler, in.uv).x;
-        if (height_offset < 0.01) {
+        if (height_offset < 0.001) {
             is_visible_water = 0.0;
         }
     }
