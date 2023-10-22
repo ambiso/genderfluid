@@ -102,13 +102,13 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let damping = 0.9971349;
     let k = 50.15820;
 
-    let attracking_point = vec2(0.3, 0.7);
+    let attracking_point = uniforms.player_position;
     let uv = vec2(f32(location.x) / f32(dim.x), f32(location.y) / f32(dim.y));
     let v: vec2<f32> = attracking_point - uv;
     var attracting_force = 0.0;
-    // if (length(v) < 0.1) {
-    //     attracting_force = min(10.0, 1.0/((abs(v.x * v.x * v.x) + abs(v.y * v.y * v.y)))) / 10000.0;
-    // }
+    if (uniforms.click == u32(1) && length(v) < 0.1) {
+        attracting_force = min(1000.0, 1.0/((abs(v.x * v.x * v.x) + abs(v.y * v.y * v.y)))) / 10000.0;
+    }
 
     // Calculate the total height difference from neighbors
     // let accel = k * ((height1) + (height2) + (height3) + (height4) - 4.0 * (height0));

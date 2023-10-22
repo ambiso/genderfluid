@@ -14,7 +14,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
         render_resource::*,
-        renderer::{RenderContext, RenderDevice},
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         Render, RenderApp, RenderSet,
     },
     window::WindowPlugin,
@@ -84,7 +84,15 @@ fn main() {
         ))
         .add_event::<SphereControlEvent>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (sphere_input_map, move_sphere, cursor_grab_system))
+        .add_systems(
+            Update,
+            (
+                sphere_input_map,
+                move_sphere,
+                cursor_grab_system,
+                prepare_fluid_compute_uniforms,
+            ),
+        )
         .run();
 }
 
@@ -108,14 +116,13 @@ fn cursor_grab_system(
     }
 }
 
-#[derive(
-    Resource, Reflect, Debug, Clone, TypeUuid, ShaderType, Pod, Zeroable, Copy,
-)]
+#[derive(Resource, Reflect, Debug, Clone, TypeUuid, ShaderType, Pod, Zeroable, Copy)]
 #[repr(C)]
 #[uuid = "61e3fe7d-e307-4d7f-a060-35fff2cba963"]
 struct FluidComputeUniforms {
     player_position: Vec2,
     click: u32,
+    _padding: u32,
 }
 
 /// set up a simple 3D scene
@@ -166,7 +173,8 @@ fn setup(
             enabled: true,
             translate_sensitivity: 2.0,
             ..Default::default()
-        });
+        })
+        .insert(Player);
 
     let mut make_texture = || {
         let mut texture = Image::new_fill(
@@ -295,6 +303,31 @@ impl Plugin for GenderfluidComputePlugin {
         let render_app = app.sub_app_mut(RenderApp);
         render_app.init_resource::<GenderfluidPipeline>();
     }
+}
+
+#[derive(Component)]
+struct Player;
+
+fn prepare_fluid_compute_uniforms(
+    btn: Res<Input<MouseButton>>,
+    render_queue: Res<RenderQueue>,
+    genderfluidimage: ResMut<GenderfluidImage>,
+    player: Query<&Transform, With<Player>>,
+) {
+    // write `time.seconds_since_startup` as a `&[u8]`
+    // into the time buffer at offset 0.
+    render_queue.write_buffer(
+        &genderfluidimage.uniforms,
+        0,
+        bevy::core::bytes_of(&FluidComputeUniforms {
+            player_position: {
+                let t = player.single().translation;
+                Vec2::new(t.x, t.z) / 5.0 + 0.5
+            },
+            click: btn.pressed(MouseButton::Left) as u32,
+            _padding: 0,
+        }),
+    );
 }
 
 #[derive(Resource, Clone, ExtractResource)]
