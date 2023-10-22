@@ -3,6 +3,7 @@
 //! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
 //! is rendered to the screen.
 
+mod extract_heights;
 mod orbit_camera;
 mod water_pbr_material;
 use bevy::{
@@ -22,6 +23,7 @@ use bevy::{
     window::WindowPlugin,
 };
 use bevy_shader_utils::ShaderUtilsPlugin;
+use extract_heights::{GenderfluidImage, GenderfluidExtractNode, GenderfluidExtractPipeline, QueryPosition};
 use orbit_camera::{ControlEvent, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin};
 use smooth_bevy_cameras::LookTransformPlugin;
 use std::{borrow::Cow, f32::consts::PI};
@@ -380,12 +382,38 @@ fn setup(
         mapped_at_creation: false,
     });
 
+    let extract_positions = render_device.create_buffer(&BufferDescriptor {
+        label: Some("fluid extract positions"),
+        size: std::mem::size_of::<QueryPosition>() as u64,
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_WRITE,
+        mapped_at_creation: false,
+    });
+
+    let extract_height = render_device.create_buffer(&BufferDescriptor {
+        label: Some("fluid extract height"),
+        size: std::mem::size_of::<f32>() as u64,
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+
+    let extract_terrain_height = render_device.create_buffer(&BufferDescriptor {
+        label: Some("fluid extract terrain height"),
+        size: std::mem::size_of::<f32>() as u64,
+        usage: BufferUsages::STORAGE | BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+
+
+
     commands.insert_resource(GenderfluidImage {
         height1,
         height2,
         velocity,
         terrain_height,
         uniforms: water_compute_uniforms_buffer,
+        extract_positions,
+        extract_height,
+        extract_terrain_height,
     });
 }
 
@@ -422,15 +450,19 @@ impl Plugin for GenderfluidComputePlugin {
         app.add_plugins(ExtractResourcePlugin::<GenderfluidImage>::default());
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(Render, queue_bind_group.in_set(RenderSet::Queue));
+        render_app.add_systems(Render, extract_heights::queue_extract_bind_group.in_set(RenderSet::Queue));
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("genderfluid", GenderfluidNode::default());
+        render_graph.add_node("genderfluid extract", GenderfluidExtractNode::default());
         render_graph.add_node_edge("genderfluid", bevy::render::main_graph::node::CAMERA_DRIVER);
+        render_graph.add_node_edge("genderfluid extract", bevy::render::main_graph::node::CAMERA_DRIVER);
     }
 
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
         render_app.init_resource::<GenderfluidPipeline>();
+        render_app.init_resource::<GenderfluidExtractPipeline>();
     }
 }
 
@@ -442,6 +474,7 @@ fn prepare_fluid_compute_uniforms(
     render_queue: Res<RenderQueue>,
     genderfluidimage: ResMut<GenderfluidImage>,
     player: Query<&Transform, With<Player>>,
+    // plants: Query<&Transform, With<Plant>>,
 ) {
     // write `time.seconds_since_startup` as a `&[u8]`
     // into the time buffer at offset 0.
@@ -457,15 +490,11 @@ fn prepare_fluid_compute_uniforms(
             _padding: 0,
         }),
     );
-}
-
-#[derive(Resource, Clone, ExtractResource)]
-struct GenderfluidImage {
-    height1: Handle<Image>,
-    height2: Handle<Image>,
-    velocity: Handle<Image>,
-    terrain_height: Handle<Image>,
-    uniforms: Buffer,
+    // render_queue.write_buffer(
+    //     &genderfluidimage.uniforms,
+    //     0,
+    //     bevy::core::cast_slice(&),
+    // );
 }
 
 #[derive(Resource)]
@@ -540,10 +569,15 @@ impl FromWorld for GenderfluidPipeline {
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: None,
                     entries: &[
+                        // height_in
                         make_binding(0, StorageTextureAccess::ReadOnly),
+                        // height_out
                         make_binding(1, StorageTextureAccess::WriteOnly),
+                        // velocity
                         make_binding(2, StorageTextureAccess::ReadWrite),
+                        // terrain_height_in
                         make_binding(3, StorageTextureAccess::ReadWrite),
+                        // uniforms
                         BindGroupLayoutEntry {
                             binding: 4,
                             visibility: ShaderStages::COMPUTE,
