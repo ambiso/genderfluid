@@ -217,7 +217,7 @@ fn spawn_plants(
 fn update_plant_health(
     time: Res<Time>,
     mut plant_grid: ResMut<PlantGrid>,
-    mut plants: Query<(&mut Transform, &Plant)>,
+    mut plants: Query<(&mut Transform, &mut Plant)>,
 ) {
     let current_time = time.elapsed_seconds() as f32;
 
@@ -232,7 +232,8 @@ fn update_plant_health(
                 // let scale = 0.1 + (plant.health / 1000.0);
                 // transform.scale = Vec3::splat(scale);
 
-                if let Ok((mut transform, actual_plant)) = plants.get_mut(plant) {
+                if let Ok((mut transform, mut actual_plant)) = plants.get_mut(plant) {
+                    actual_plant.health = 5.0;
                     transform.scale = Vec3::splat(0.01 * (current_time * PI).sin() + 0.01);
                 }
                 // println!("Updated plant size");
