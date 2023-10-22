@@ -15,7 +15,7 @@ use bevy::{
         render_graph::{self, RenderGraph},
         render_resource::*,
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        Render, RenderApp, RenderSet,
+        Render, RenderApp, RenderSet, view::NoFrustumCulling,
     },
     window::WindowPlugin,
 };
@@ -220,7 +220,7 @@ fn setup(
         ),
         material: material_handle,
         ..default()
-    });
+    }).insert(NoFrustumCulling);
 
     let terrain_material_handle = custom_materials.add(WaterStandardMaterial {
         height: Some(terrain_height.clone()),
@@ -242,7 +242,7 @@ fn setup(
         ),
         material: terrain_material_handle,
         ..default()
-    });
+    }).insert(NoFrustumCulling);
 
     let water_compute_uniforms_buffer = render_device.create_buffer(&BufferDescriptor {
         label: Some("fluid compute uniforms"),
