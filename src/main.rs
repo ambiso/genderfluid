@@ -3,6 +3,7 @@
 //! Compute shaders use the GPU for computing arbitrary information, that may be independent of what
 //! is rendered to the screen.
 
+mod orbit_camera;
 mod water_pbr_material;
 
 use bevy::{
@@ -22,11 +23,9 @@ use bevy::{
     window::WindowPlugin,
 };
 use bevy_shader_utils::ShaderUtilsPlugin;
-use smooth_bevy_cameras::{
-    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
-    LookTransformPlugin,
-};
-use std::borrow::Cow;
+use orbit_camera::{ControlEvent, OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin};
+use smooth_bevy_cameras::LookTransformPlugin;
+use std::{borrow::Cow, f32::consts::PI};
 use water_pbr_material::WaterStandardMaterial;
 
 const SIZE: u32 = 256;
@@ -99,7 +98,7 @@ fn main() {
                 ..default()
             }),
             GenderfluidComputePlugin,
-            FpsCameraPlugin::default(),
+            OrbitCameraPlugin::default(),
             LookTransformPlugin,
             ShaderUtilsPlugin,
             MaterialPlugin::<WaterStandardMaterial>::default(),
@@ -115,6 +114,7 @@ fn main() {
                 cursor_grab_system,
                 prepare_fluid_compute_uniforms,
                 spawn_plants,
+                update_camera_target,
             ),
         )
         .run();
@@ -138,6 +138,13 @@ fn cursor_grab_system(
         window.cursor.grab_mode = CursorGrabMode::None;
         window.cursor.visible = true;
     }
+}
+
+fn update_camera_target(
+    mut events: EventWriter<ControlEvent>,
+    player: Query<&Transform, With<Player>>,
+) {
+    events.send(ControlEvent::NewTarget(player.single().translation));
 }
 
 #[derive(Resource, Reflect, Debug, Clone, TypeUuid, ShaderType, Pod, Zeroable, Copy)]
@@ -201,7 +208,7 @@ fn setup(
 ) {
     let eye = Vec3::new(-2.0, 5.0, 5.1);
     let target = Vec3::default();
-    let controllllller = FpsCameraController::default();
+    let controllllller = OrbitCameraController::default();
 
     let plant = asset_server.load("glowingflower2.glb#Scene0");
     commands.insert_resource(PlantAsset(plant));
@@ -217,7 +224,7 @@ fn setup(
 
     commands
         .spawn(Camera3dBundle::default())
-        .insert(FpsCameraBundle::new(controllllller, eye, target, Vec3::Y));
+        .insert(OrbitCameraBundle::new(controllllller, eye, target, Vec3::Y));
 
     // light
     commands.spawn(PointLightBundle {
@@ -231,12 +238,12 @@ fn setup(
     });
 
     // Add a cube to visualize translation.
-    let entity_spawn = Vec3::ZERO;
+    let entity_spawn = Vec3::new(0.0, 3.0, 0.0);
     commands
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 1.0,
+                    radius: 0.1337,
                     sectors: 32,
                     stacks: 32,
                 })),
@@ -387,7 +394,7 @@ impl Plugin for GenderfluidComputePlugin {
 }
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 fn prepare_fluid_compute_uniforms(
     btn: Res<Input<MouseButton>>,
@@ -628,6 +635,8 @@ pub fn sphere_input_map(
     mut events: EventWriter<SphereControlEvent>,
     keyboard: Res<Input<KeyCode>>,
     controllers: Query<&SphereController>,
+    player: Query<&Transform, With<Player>>,
+    camera: Query<&Transform, With<OrbitCameraController>>,
 ) {
     // Can only control one sphere at a time.
     let controller = if let Some(controller) = controllers.iter().find(|c| c.enabled) {
@@ -641,13 +650,18 @@ pub fn sphere_input_map(
         ..
     } = *controller;
 
+    let mut view_direction = player.single().translation - camera.single().translation;
+    view_direction.y = 0.0;
+    view_direction = view_direction.normalize();
+
+    let left = Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, 0.0, PI / 2.0, 0.0))
+        * view_direction;
+
     for (key, dir) in [
-        (KeyCode::T, Vec3::Z),
-        (KeyCode::F, -Vec3::X),
-        (KeyCode::G, -Vec3::Z),
-        (KeyCode::H, Vec3::X),
-        (KeyCode::E, Vec3::Y),
-        (KeyCode::C, -Vec3::Y),
+        (KeyCode::W, view_direction),
+        (KeyCode::A, left),
+        (KeyCode::S, -view_direction),
+        (KeyCode::D, -left),
     ]
     .iter()
     .cloned()
